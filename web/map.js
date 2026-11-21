@@ -1,0 +1,164 @@
+// Roughness values are logs relative to good asphalt: exp(v) = "x as rough as good asphalt".
+const ROUGH = { stops: [-0.1, 0.1, 0.3, 0.5, 0.8], colors: ["#1a9850", "#a6d96a", "#fee08b", "#fc8d59", "#d73027"],
+                label: v => "×" + Math.exp(v).toFixed(1) };
+const INFO = { stops: [0.1, 1, 10, 100, 1000], colors: ["#edf8fb", "#b3cde3", "#8c96c6", "#8856a7", "#810f7c"],
+               label: v => v, log: true };
+const FADE = { stops: [0.1, 1, 10], opacity: [0.12, 0.5, 1] };            // by information, on a log axis
+const MISSING = "#a8a8a8";
+const MEASURED = [">", ["get", "passes"], 0];
+const MODES = {
+  est:   { name: "Estimated", prop: "est", scale: ROUGH, filter: MEASURED, fade: true,
+           note: "Measured roughness, × as rough as good asphalt." },
+  prior: { name: "OSM", prop: "prior", scale: ROUGH, missing: "not predictable",
+           note: "Predicted from the OSM surface and smoothness tags." },
+  comb:  { name: "Combined", prop: "comb", scale: ROUGH,
+           note: "OSM and the measurement merged." },
+  z:     { name: "Difference", prop: "z", filter: MEASURED, fade: true,
+           scale: { stops: [-4, -2, 0, 2, 4], colors: ["#2166ac", "#67a9cf", "#d9d9d9", "#ef8a62", "#b2182b"],
+                    label: v => v },
+           note: "Measured vs OSM (z). Blue: smoother than OSM says, red: rougher." },
+  information: { name: "Information", prop: "information", filter: MEASURED, scale: INFO,
+           note: "How much the measurement rests on: passes weighted by age, length and match certainty." },
+};
+
+// MapLibre's CSP build: its worker is a file of this site, not a blob, so the page's Content-Security-Policy can stay strict
+maplibregl.setWorkerUrl("lib/maplibre-gl-csp-worker.js");
+const protocol = new pmtiles.Protocol();
+maplibregl.addProtocol("pmtiles", protocol.tile);
+const map = new maplibregl.Map({
+  container: "map", style: "https://tiles.openfreemap.org/styles/positron",
+  center: [13.40, 52.51], zoom: 12, hash: true,   // the start view: the middle of the current region (Berlin)
+  attributionControl: { compact: true,   // the legal pages are the site's own (not in this repository)
+    customAttribution: '<a href="impressum.html">Impressum</a> · <a href="privacy.html">Privacy</a>' },
+});
+map.addControl(new maplibregl.GeolocateControl());   // "where am I", mostly for phones
+
+// a finger is less precise than a mouse: look for a street within a few pixels of the point, then a few more
+const PHONE_PX = 600;      // narrower maps count as phones (as in the CSS): the popup opens below the street
+const PICK_PX = [3, 12];   // search radii in screen pixels: a mouse click lands within ~3, a tap within ~12
+function pick(pt) {
+  for (const r of PICK_PX) {
+    const f = map.queryRenderedFeatures([[pt.x - r, pt.y - r], [pt.x + r, pt.y + r]], { layers: ["links"] });
+    if (f.length) return f[0];
+  }
+}
+
+// interpolate a property over stops (on a log10 axis if log); values beyond the ends keep the end's value
+function ramp(prop, stops, outputs, log) {
+  const x = ["coalesce", ["get", prop], 0];
+  const e = ["interpolate", ["linear"], log ? ["log10", ["max", x, stops[0]]] : x];
+  stops.forEach((v, i) => e.push(log ? Math.log10(v) : v, outputs[i]));
+  return e;
+}
+
+function setMode(key) {
+  const m = MODES[key], s = m.scale;
+  const color = ramp(m.prop, s.stops, s.colors, s.log);
+  map.setPaintProperty("links", "line-color", m.missing ? ["case", ["has", m.prop], color, MISSING] : color);
+  const show = ["all", m.missing ? true : ["has", m.prop], m.filter || true];
+  map.setFilter("links", show);
+  map.setFilter("oneway", ["all", ["has", "oneway"], show]);
+  map.setPaintProperty("links", "line-opacity", m.fade ? ramp("information", FADE.stops, FADE.opacity, true) : 1);
+  document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.k === key));
+  const bar = (colors, ticks) => `<div class="bar" style="background:linear-gradient(to right,${colors.join(",")})"></div>
+     <div class="ticks">${ticks.map(t => `<span>${t}</span>`).join("")}</div>`;
+  document.getElementById("legend").innerHTML = bar(s.colors, s.stops.map(s.label))
+    + (m.missing ? `<div class="grey"><span style="display:inline-block;width:18px;height:6px;background:${MISSING};margin-right:4px"></span>${m.missing}</div>` : "")
+    + (m.fade ? `<div class="fade">${bar(FADE.opacity.map(o => `rgba(60,60,60,${o})`), FADE.stops)}<div class="grey">opacity: information</div></div>` : "");
+  document.getElementById("note").textContent = m.note;
+  try { localStorage.setItem("mode", key); } catch (e) {}
+}
+
+for (const [k, m] of Object.entries(MODES)) {
+  const b = document.createElement("button");
+  b.textContent = m.name; b.dataset.k = k; b.onclick = () => setMode(k);
+  document.getElementById("modes").appendChild(b);
+}
+// windows: links with data-open open one; its backdrop, a data-close button or Escape closes it
+// (an open window makes the page itself scroll: phone browsers scroll a page to its end, a scrolling box not always)
+function show(id, on) {
+  window.scrollTo(0, 0);   // first: once the page can't scroll, some browsers keep the old position
+  document.getElementById(id).style.display = on ? "block" : "none";
+  document.documentElement.classList.toggle("reading", [...document.querySelectorAll(".window")]
+    .some(w => w.style.display === "block"));
+}
+document.querySelectorAll("[data-open]").forEach(a => a.onclick = ev => {
+  ev.preventDefault(); document.querySelectorAll(".window").forEach(w => show(w.id, false)); show(a.dataset.open, true);
+});
+document.querySelectorAll(".window").forEach(w => w.onclick = ev => {
+  if (ev.target === w || ev.target.matches("[data-close]")) show(w.id, false);
+});
+document.addEventListener("keydown", ev => {
+  if (ev.key === "Escape") document.querySelectorAll(".window").forEach(w => show(w.id, false));
+});
+// the address is put together here, so bots that collect addresses from the page source don't find it
+const mail = ["info", "velosense.org"].join("@");
+document.getElementById("mail").innerHTML = `<a href="mailto:${mail}">${mail}</a>`;
+// the about window welcomes first-time visitors
+let welcomed = false;
+try { welcomed = localStorage.getItem("welcomed") === "1"; localStorage.setItem("welcomed", "1"); } catch (e) {}
+if (!welcomed) show("about", true);
+
+map.on("load", () => {
+  // phones: the credits start folded into their (i) button, as they fold anyway once the map is moved
+  if (map.getContainer().clientWidth < PHONE_PX)
+    document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+  map.addSource("links", { type: "vector", url: "pmtiles://" + new URL("data/roughness.pmtiles", location.href).href,
+    attribution: 'Rides: <a href="https://github.com/simra-project/dataset" target="_blank" rel="noopener">SimRa</a> '
+      + '(<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>)' });
+  map.addLayer({
+    id: "links", type: "line", source: "links", "source-layer": "links",
+    layout: { "line-cap": "round" },
+    paint: {
+      "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1, 15, 3.5, 18, 6],
+      "line-offset": ["interpolate", ["linear"], ["zoom"], 11, 0.5, 15, 2.5, 18, 5],
+    },
+  });
+  // one-way arrows: the features run in the direction of travel; shifted right like the line (line-offset)
+  map.addLayer({
+    id: "oneway", type: "symbol", source: "links", "source-layer": "links", minzoom: 16,
+    filter: ["has", "oneway"],
+    layout: {
+      "symbol-placement": "line", "symbol-spacing": 70, "text-field": "→", "text-font": ["Noto Sans Regular"],
+      "text-size": 14, "text-keep-upright": false, "text-rotation-alignment": "map", "text-allow-overlap": true,
+      "text-offset": ["interpolate", ["linear"], ["zoom"], 16, ["literal", [0, 0.25]], 18, ["literal", [0, 0.35]]],
+    },
+    paint: { "text-color": "#333", "text-halo-color": "#fff", "text-halo-width": 1.2 },
+  });
+  let mode = "est";
+  try { mode = localStorage.getItem("mode") || mode; } catch (e) {}
+  setMode(MODES[mode] ? mode : "est");
+
+  map.on("mouseenter", "links", () => map.getCanvas().style.cursor = "pointer");
+  map.on("mouseleave", "links", () => map.getCanvas().style.cursor = "");
+  map.on("click", ev => {
+    const f = pick(ev.point);
+    if (!f) return;
+    // OSM names and tags are written by anyone: escape them before they go into the popup's HTML
+    const esc = v => String(v ?? "").replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+    const p = Object.fromEntries(Object.entries(f.properties).map(([k, v]) => [k, typeof v === "string" ? esc(v) : v]));
+    // ×ratio ± its uncertainty in the same units (exp(v) x se: the log's standard error carried over)
+    const rough = (v, se) => v === undefined ? "–" : "×" + Math.exp(v).toFixed(2)
+      + (se === undefined ? "" : ` <span class="grey">± ${(Math.exp(v) * se).toFixed(2)}</span>`);
+    const grey = t => ` <span class="grey">${t}</span>`;
+    const rows = [
+      ["street", (p.name || "") + grey(p.hw)],
+      ["direction", p.dir > 0 ? "as drawn" : "against drawn"],
+      ["estimated", rough(p.est, p.se)],
+      ["OSM", p.prior === undefined ? "not predictable" : rough(p.prior, p.tau) + (p.bysurf ? grey(`all ${p.surface}`) : "")],
+      ["combined", rough(p.comb, p.comb_se)],
+      ["difference", p.z === undefined ? "–" : "z = " + p.z.toFixed(1)],
+      ["passes", p.passes],
+      ["information", p.information === undefined ? 0 : p.information.toFixed(1)],
+      ["OSM class", `${p.surface || "–"} / ${p.smoothness || "–"}` + grey("surface / smoothness for bikes")],
+      ["OSM way", `<a href="https://www.openstreetmap.org/way/${p.way}" target="_blank" rel="noopener">${p.way}</a>`],
+    ];
+    // on a phone the popup is as wide as the screen: move the street to the top middle, the popup goes below it
+    const phone = map.getContainer().clientWidth < PHONE_PX;
+    if (phone) map.easeTo({ center: ev.lngLat, offset: [0, -map.getContainer().clientHeight / 4] });
+    new maplibregl.Popup({ maxWidth: "min(360px, calc(100vw - 20px))", anchor: phone ? "top" : undefined })
+      .setLngLat(ev.lngLat)
+      .setHTML("<table>" + rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("") + "</table>")
+      .addTo(map);
+  });
+});

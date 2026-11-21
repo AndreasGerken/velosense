@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Velosense: street roughness from recorded bike rides</title>
+<meta name="description" content="How rough are the streets to ride? Roughness per street and riding direction, measured from recorded bike rides (for now in Berlin, from SimRa), next to what the OpenStreetMap tags predict.">
+<!-- the preview when the link is shared -->
+<meta property="og:title" content="Velosense: street roughness from recorded bike rides">
+<meta property="og:description" content="How rough are the streets to ride? Roughness per street and riding direction, measured from recorded bike rides (for now in Berlin, from SimRa), next to what the OpenStreetMap tags predict.">
+<meta property="og:image" content="https://velosense.org/docs/map.jpg">
+<meta property="og:url" content="https://velosense.org/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="lib/maplibre-gl.css">
+<script src="lib/maplibre-gl-csp.js"></script>
+<script src="lib/pmtiles.js"></script>
+<style>
+  /* the map page never scrolls (a phone browser would hide its address bar and leave a gap); the map always
+     fills the screen */
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; background: #f2f3f0;
+               font: 13px/1.35 system-ui, sans-serif; }
+  #map { position: fixed; inset: 0; }
+  #panel { position: fixed; top: 10px; left: 10px; background: #fff; padding: 8px 10px; border-radius: 6px;
+           box-shadow: 0 1px 4px #0004; max-width: 260px; }
+  button { margin: 0 2px 4px 0; padding: 3px 7px; border: 1px solid #aaa; background: #f6f6f6; border-radius: 4px;
+           cursor: pointer; font: inherit; }
+  #modes button.on { background: #333; color: #fff; border-color: #333; }
+  .bar { height: 10px; border-radius: 2px; margin: 4px 0 2px; }
+  .ticks { display: flex; justify-content: space-between; color: #555; }
+  .grey { color: #777; }
+  #note { color: #555; margin: 4px 0; }
+  #demo { margin-top: 4px; font-size: 12px; }
+  a { color: #2a6fb0; }
+  /* an open window: the page scrolls (html.reading), the map stays fixed behind a dark layer; dark space below the
+     box shows where it ends */
+  html.reading { background: #6a6b69; }
+  html.reading, html.reading body { height: auto; overflow: visible; }
+  .window { display: none; position: relative; z-index: 10; min-height: 100vh; padding: 40px 0; box-sizing: border-box;
+            background: #0007; }
+  .window > div { max-width: 560px; margin: 0 auto; background: #fff; padding: 4px 18px 12px; border-radius: 6px; }
+  .window h2 { margin: 14px 0 6px; font-size: 18px; }
+  .window h3 { margin: 14px 0 4px; }
+  .window p { margin: 0 0 6px; }
+  .window .intro { font-size: 14px; }
+  .window .icon { width: 30px; height: 30px; vertical-align: -8px; margin-right: 8px; }
+  .maplibregl-popup-content table td { padding: 0 8px 0 0; vertical-align: top; }
+  .maplibregl-popup-content table td:first-child { white-space: nowrap; font-weight: bold; }
+  @media (max-width: 600px) {   /* phones: a smaller panel; the welcome text explains the faint lines */
+    .window { padding: 16px 16px 64px; }
+    #panel { padding: 6px 8px; max-width: 220px; font-size: 12px; }
+    #panel button { padding: 2px 5px; margin: 0 1px 3px 0; }
+    #note, #panel .fade { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <div id="modes"></div>
+  <div id="legend"></div>
+  <div id="note"></div>
+  <a href="#" data-open="about">About and how it works</a> · <a href="#" data-open="feedback">Feedback</a>
+  <div id="demo" class="grey">A demo: estimates, may contain errors.</div>
+</div>
+
+<div id="about" class="window"><div>
+  <h2><img class="icon" src="favicon.svg" alt="">How rough are the streets to ride?</h2>
+  <p class="intro">This map shows for every street how much it shakes a bike, separately for each riding direction,
+     measured from recorded bike rides. It works wherever rides are recorded; for now it covers Berlin, with the rides
+     of the <a href="https://www.digital-future.berlin/forschung/projekte/simra/" target="_blank" rel="noopener">SimRa</a>
+     project, where cyclists record their rides with a phone app. It builds on
+     <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>: where few rides pass,
+     the surface tags its mappers have collected by hand fill in.</p>
+  <p class="intro"><b style="color:#1a9850">Green</b> is smooth, <b style="color:#d73027">red</b> is rough, faint
+     lines rest on few rides. Click or tap a street for its values; the buttons top left switch between the views.</p>
+  <p class="grey">A demo: all values are estimates and may contain errors or inaccuracies (wrongly matched rides,
+     few rides, biases at low speed and on short segments). They are not a recommendation to change OSM tags.
+     <a href="#" data-open="feedback">Feedback</a> is welcome.</p>
+  <button data-close>Show the map</button>
+  <h3>Code and data</h3>
+  <p>Code: open source on <a href="https://github.com/AndreasGerken/velosense" target="_blank" rel="noopener">GitHub</a>
+     (<a href="https://github.com/AndreasGerken/velosense/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>).<br>
+     Roughness: calculated from the <a href="https://github.com/simra-project/dataset" target="_blank" rel="noopener">SimRa rides</a>
+     (<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>: no commercial use).<br>
+     Streets and tags: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap contributors</a>
+     (ODbL). Base map: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a>,
+     <a href="https://openmaptiles.org/" target="_blank" rel="noopener">© OpenMapTiles</a>; drawn with
+     <a href="https://maplibre.org/" target="_blank" rel="noopener">MapLibre</a> and <a href="https://protomaps.com/" target="_blank" rel="noopener">PMTiles</a>
+     (BSD licenses).<br>
+     <a href="impressum.html">Impressum</a> · <a href="privacy.html">Privacy</a></p>
+  <h2>How it's calculated</h2>
+  <h3>Roughness</h3>
+  <p>Every street is shown per riding direction (each on its own side). Roughness is "× as rough as good asphalt":
+     ×1.5 shakes a bike 1.5 times as much as a street tagged <i>surface=asphalt, smoothness=good</i> at the same speed.
+     A value <span class="grey">± x</span> is its uncertainty (one standard error: the true value lies within it
+     about 2 times in 3).</p>
+  <h3>Estimated</h3>
+  <p>From SimRa rides. Each second of a ride gives the vertical shaking, corrected for speed and for the rider's
+     phone and bike (the ride's median is taken out), averaged over 60 m of the ride: a short segment shows the
+     street around it, not just a kerb at its end. The seconds are matched to the street network; the seconds of
+     one ride on one street segment and direction form a <b>pass</b>. The estimate is the weighted mean of its
+     passes.</p>
+  <h3>Information</h3>
+  <p>The passes, each counted by its weight: <b>age</b> (a pass counts half at 3 years old and ×0.1 at 5),
+     <b>length</b> (a 20 m pass counts 1, a longer one a little more) and the matcher's <b>certainty</b> that the pass is on this street and not on a parallel one (0.5 for a cycle track exactly as
+     close as the road). 1 = one new, clearly matched 20 m pass. Estimated and Difference fade out where it is
+     low.</p>
+  <h3>OSM</h3>
+  <p>What OpenStreetMap's surface and smoothness tags predict (surface:bicycle and smoothness:bicycle where a
+     road has its own surface for bikes): the typical measured roughness of the streets with
+     the same pair of tags (if at least 20 are well measured: information ≥ 3), else of all streets with the same
+     surface. Without a surface tag nothing is predictable (grey). Its ± is how much these streets really differ.</p>
+  <h3>Combined</h3>
+  <p>OSM and the measurement merged, each weighted by how sure it is (1 / uncertainty²). Without rides it is the
+     OSM prediction, without an OSM prediction the measurement.</p>
+  <h3>Difference</h3>
+  <p>Measured minus OSM, in units of their combined uncertainty (z). Beyond ±2 the street is clearly smoother
+     (blue) or rougher (red) than its tags say.</p>
+  <p class="grey">Details and the checks behind every number:
+     <a href="https://github.com/AndreasGerken/velosense/blob/main/docs/how_it_works.md" target="_blank"
+        rel="noopener">how it works</a>.</p>
+  <button data-close>Close</button>
+</div></div>
+
+<div id="feedback" class="window"><div>
+  <h3>Feedback</h3>
+  <p>Wrong values, ideas or questions: please write to <span id="mail"></span>.</p>
+  <button data-close>Close</button>
+</div></div>
+
+<script src="map.js"></script>
+</body>
+</html>
