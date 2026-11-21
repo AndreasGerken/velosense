@@ -45,6 +45,7 @@
   .window p { margin: 0 0 6px; }
   .window .intro { font-size: 14px; }
   .window .icon { width: 30px; height: 30px; vertical-align: -8px; margin-right: 8px; }
+  .window .gh { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; fill: currentColor; }
   .maplibregl-popup-content table td { padding: 0 8px 0 0; vertical-align: top; }
   .maplibregl-popup-content table td:first-child { white-space: nowrap; font-weight: bold; }
   @media (max-width: 600px) {   /* phones: a smaller panel; the welcome text explains the faint lines */
@@ -66,13 +67,16 @@
 </div>
 
 <div id="about" class="window"><div>
-  <h2><img class="icon" src="favicon.svg" alt="">How rough are the streets to ride?</h2>
-  <p class="intro">This map shows for every street how much it shakes a bike, separately for each riding direction,
-     measured from recorded bike rides. It works wherever rides are recorded; for now it covers Berlin, with the rides
-     of the <a href="https://www.digital-future.berlin/forschung/projekte/simra/" target="_blank" rel="noopener">SimRa</a>
+  <h2><img class="icon" src="favicon.svg" alt="">Map of surface roughness for bike rides</h2>
+  <p class="intro">This map shows for every street in Berlin how rough it is on a bike, separately for each riding
+     direction.</p>
+  <p class="intro">It works wherever rides are recorded with a phone on the bike: its accelerometer measures every bump,
+     and GPS places it on the street. For now the rides come from the
+     <a href="https://www.digital-future.berlin/forschung/projekte/simra/" target="_blank" rel="noopener">SimRa</a>
      project, where cyclists record their rides with a phone app. It builds on
-     <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>: where few rides pass,
-     the surface tags its mappers have collected by hand fill in.</p>
+     <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a> to match the rides to
+     the streets, and to carry what the rides show over to the surface and smoothness tags where there are not enough
+     rides yet.</p>
   <p class="intro"><b style="color:#1a9850">Green</b> is smooth, <b style="color:#d73027">red</b> is rough, faint
      lines rest on few rides. Click or tap a street for its values; the buttons top left switch between the views.</p>
   <p class="grey">A demo: all values are estimates and may contain errors or inaccuracies (wrongly matched rides,
@@ -80,7 +84,7 @@
      <a href="#" data-open="feedback">Feedback</a> is welcome.</p>
   <button data-close>Show the map</button>
   <h3>Code and data</h3>
-  <p>Code: open source on <a href="https://github.com/AndreasGerken/velosense" target="_blank" rel="noopener">GitHub</a>
+  <p>Code: open source on <a href="https://github.com/AndreasGerken/velosense" target="_blank" rel="noopener"><svg class="gh" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"/></svg>GitHub</a>
      (<a href="https://github.com/AndreasGerken/velosense/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>).<br>
      Roughness: calculated from the <a href="https://github.com/simra-project/dataset" target="_blank" rel="noopener">SimRa rides</a>
      (<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>: no commercial use).<br>
