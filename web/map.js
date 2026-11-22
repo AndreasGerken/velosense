@@ -134,7 +134,7 @@ map.on("load", () => {
       "line-offset": ["interpolate", ["linear"], ["zoom"], 11, 0.5, 15, 2.5, 18, 5],
     },
   });
-  // the Rides view: a sample of ride seconds, drawn thin under nothing else
+  // the Rides view: the rides' seconds (zoomed out, 10 s per line), drawn thin
   map.addSource("rides", { type: "vector", url: tiles("rides.pmtiles"), attribution });
   map.addLayer({
     id: "rides", type: "line", source: "rides", "source-layer": "rides", layout: { "line-cap": "round" },
@@ -162,7 +162,7 @@ map.on("load", () => {
   map.on("click", ev => {
     if (map.getLayoutProperty("rides", "visibility") === "visible") {
       const r = pick(ev.point, "rides");
-      if (r) new maplibregl.Popup().setLngLat(ev.lngLat).setHTML(`One second of a SimRa ride: <b>×${
+      if (r) new maplibregl.Popup().setLngLat(ev.lngLat).setHTML(`A piece of a SimRa ride: <b>×${
         Math.exp(r.properties.n).toFixed(2)}</b> <span class="grey">the ride's median shaking</span>`).addTo(map);
       return;
     }

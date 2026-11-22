@@ -1,8 +1,8 @@
 """OSM PBF -> links.parquet.
 
 1. Ways bikes may ride (RIDING highway types, not access=no / private unless bikes are allowed) with any node in
-   the region's box (BBOX; the way is kept whole). Left out: parking aisles and driveways (they run beside roads and would
-   take the road's riders) and sidewalks / crossings that don't allow bikes. Separately mapped cycle tracks stay
+   the region's box (BBOX; the way is kept whole). Left out: parking aisles and driveways (they run beside roads and
+   would take the road's riders) and sidewalks / crossings that don't allow bikes. Separately mapped cycle tracks stay
    their own links, so a road isn't measured by its cycle track.
 2. The ways are split at every node shared with another kept way (a junction) -> links.
 3. Per link: the OSM class `<surface>/<smoothness>` (the raw tag values, '-' when missing; `surface:bicycle` /
@@ -28,8 +28,8 @@ from config import BBOX
 RIDING = {"primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link", "unclassified",
           "residential", "living_street", "service", "pedestrian", "track", "cycleway", "path", "footway",
           "bridleway"}
-KEEP_TAGS = ("highway", "surface", "smoothness", "surface:bicycle", "smoothness:bicycle", "oneway", "oneway:bicycle", "name", "footway",
-             "bicycle", "junction", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both")
+KEEP_TAGS = ("highway", "surface", "smoothness", "surface:bicycle", "smoothness:bicycle", "oneway", "oneway:bicycle",
+             "name", "footway", "bicycle", "junction", "cycleway", "cycleway:right", "cycleway:left", "cycleway:both")
 MINOR_SERVICE = {"parking_aisle", "driveway", "drive-through", "emergency_access"}   # left out: beside roads
 BIKE_OK = {"yes", "designated", "permissive"}
 YES = {"yes", "1", "true"}

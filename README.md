@@ -19,8 +19,8 @@ way and riding direction on one scale for every street and city, for bike router
 
 ![Berlin Mitte: the raw rides, the roughness measured from all rides, and what the OSM tags predict](docs/map.jpg)
 
-Berlin Mitte: the raw rides (left), the roughness measured from all rides per street (middle) and what
-the OSM tags predict (right). Most streets here are tagged good asphalt; the rides show which of them ride rough.
+Berlin Mitte: the raw rides (left), the roughness measured from all rides per street (middle) and what the OSM
+tags predict (right). Most streets here are tagged good asphalt; the rides show which of them ride rough.
 Each riding direction is drawn on its own side of the street.
 
 Roughness is shown as **"× as rough as good asphalt"**: ×1.5 shakes a bike 1.5 times as much as a street tagged
@@ -109,7 +109,8 @@ data/       inputs and in-between files (not in the repository)
 
 ## Install
 
-You need Python ≥ 3.12, [tippecanoe](https://github.com/felt/tippecanoe) ≥ 2.49 and about 16 GB of RAM.
+You need Python ≥ 3.12, [tippecanoe](https://github.com/felt/tippecanoe) ≥ 2.49 (with `tile-join`) and about 16 GB
+of RAM.
 
 ```bash
 python3 -m venv venv
@@ -155,10 +156,12 @@ memory cap.
 
 No cookies, no tracking, no analytics services, no access log. The live site only counts page views and visitors
 per day, anonymously (a hash with a random daily key, kept in memory). The scripts are served from the site itself
-(`web/lib/`); only the base map comes from [OpenFreeMap](https://openfreemap.org/). The browser remembers the chosen view and whether the
-welcome was shown, and nothing leaves it. The published values are averages per street segment and direction, with
-no ride, time or route in them. The *Rides* view shows pieces of the rides without times or ride ids: the
-first and last 500 m of every ride and every other 500 m piece are left out, so no start, end or whole ride shows.
+(`web/lib/`); only the base map comes from [OpenFreeMap](https://openfreemap.org/). The browser remembers the chosen
+view and whether the welcome was shown, and nothing leaves it.
+
+The published values are averages per street segment and direction, with no ride, time or route in them. The
+*Rides* view shows pieces of the rides without times or ride ids: the first and last 500 m of every ride and every
+other 500 m piece are left out, so no start, end or whole ride shows.
 
 ## Feedback
 
@@ -175,7 +178,8 @@ The code is under the [MIT License](LICENSE). The data it produces (estimates, t
 [SimRa terms of use](https://github.com/simra-project/dataset)) and OpenStreetMap
 ([ODbL](https://www.openstreetmap.org/copyright)) and keeps their terms: attribution, no commercial use of the
 ride-derived values, share-alike for the OSM data. SimRa's terms ask that published data can't be traced back to
-riders; the values here are aggregated per street segment for that reason.
+riders: the values are aggregated per street segment, and the *Rides* view shows only pieces of rides (see
+*Privacy*).
 
-`web/lib/` holds [MapLibre GL JS](https://maplibre.org/) 4.7.1 and [PMTiles](https://github.com/protomaps/PMTiles) 3.2.1,
-both BSD-3-Clause (license files next to them).
+`web/lib/` holds [MapLibre GL JS](https://maplibre.org/) 4.7.1 and
+[PMTiles](https://github.com/protomaps/PMTiles) 3.2.1, both BSD-3-Clause (license files next to them).

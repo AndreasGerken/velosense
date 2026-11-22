@@ -80,12 +80,12 @@ TAU_TAIL = 0.10         # the prior's spread is read from the middle 80 % of its
 TAU_MIN = 0.10          # the prior's uncertainty never below this: x1.1 (choice, for small classes)
 
 # ---- tiles.py --------------------------------------------------------------------------------------------------------
-MIN_ZOOM, MAX_ZOOM = 10, 15  # tile zooms (the map zooms in further on the zoom 15 tiles)
-MINOR_ZOOM = 13         # minor ways without passes show from this zoom on: keeps the low zooms light
+MIN_ZOOM, MAX_ZOOM = 10, 15  # tile zooms: a city to its streets (the map zooms in further on the zoom 15 tiles)
+MINOR_ZOOM = 13         # minor ways without passes show from this zoom on: keeps the low zooms light (choice)
 RIDE_CLOSE_ZOOM = 14    # from this zoom on the Rides view draws every ride second (choice: single streets are told
                         # apart; zoom 14 tiles cover ~1.5 km)
-RIDE_MAX_ZOOM = 17      # the Rides view's last tile zoom: below it, the tiles of the busiest streets can't hold every
-                        # ride second (tippecanoe would leave some out)
+RIDE_MAX_ZOOM = 17      # the Rides view's last tile zoom: at 15 and 16, the tiles of the busiest streets can't hold
+                        # every ride second yet (tippecanoe leaves some out there)
 RIDE_FAR_S = 10         # s: below RIDE_CLOSE_ZOOM, one line per this many ride seconds with their mean (~50 m: a few
                         # pixels at zoom 13, finer is not seen) (choice)
 RIDE_BATCH = 2000       # rides read at a time when writing the tiles: bounds the memory (choice)

@@ -29,7 +29,8 @@
    Without a smoothness tag, or with fewer than MIN_LINKS such link directions, the prior of all link directions
    of its surface (same rule; `by_surface`); without a surface tag (or too few) none: not predictable from OSM.
 4. Combined = the prior and est weighted by 1/tau² and 1/se² (= the prior without passes, est without a prior).
-5. Difference z = (est - prior) / √(tau² + se² - DRIFT²) (both from the same years: the drift is no part of their gap).
+5. Difference z = (est - prior) / √(tau² + se² - DRIFT²) (both from the same years: the drift is no part of their
+   gap).
 All values are logs relative to asphalt/good (its prior = 0), so exp(value) = "x as rough as good asphalt".
 
 Every link direction a bike may ride is in the output (one-way links in one direction only).
@@ -146,8 +147,8 @@ def wide_sd(x) -> float:
 def priors(e: pd.DataFrame) -> pd.DataFrame:
     """per link direction: prior, tau and by_surface. From its OSM class (surface/smoothness) when both tags are
     there and the class has >= MIN_LINKS link directions of information >= MIN_INFO, else from all link directions
-    of its surface
-    (same rule), else none. Without a surface tag: none (a smoothness alone is too rare to learn from)"""
+    of its surface (same rule), else none. Without a surface tag: none (a smoothness alone is too rare to learn
+    from)"""
     tags = e.osm_class.str.split("/", expand=True)
     e = e.assign(surface=tags[0], se2=e.se ** 2 - DRIFT ** 2)    # the noise: drift doesn't widen a class
     teach = e[e.information >= MIN_INFO]
@@ -198,8 +199,8 @@ def main():
         f"{(e.information >= MIN_INFO).sum():,} with information >= {MIN_INFO:g}; sd of one pass {sd_one:.2f}")
     log(f"OSM prior from the surface alone on {e.by_surface.sum():,}, none (no surface tag or too rarely measured) "
         f"on {e.prior.isna().sum():,}; |z| >= 2 on {(e.z.abs() >= 2).sum():,} -> {LINKS_EST}")
-    cls = e[e.information >= MIN_INFO].groupby("osm_class").agg(n=("est", "size"), est=("est", "median"),
-                                                        prior=("prior", "first"), tau=("tau", "first"))
+    cls = e[e.information >= MIN_INFO].groupby("osm_class").agg(
+        n=("est", "size"), est=("est", "median"), prior=("prior", "first"), tau=("tau", "first"))
     log("classes (log units, 0 = asphalt/good; x as rough = exp):\n" +
         cls[cls.n >= MIN_LINKS].sort_values("est").round(2).to_string())
 

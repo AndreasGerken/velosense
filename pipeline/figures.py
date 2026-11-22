@@ -18,11 +18,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from common import LINKS, LINKS_EST, ROOT  # noqa: E402
-from config import DRIFT, MIN_INFO, SURE_INFO, SURE_M, SURE_SE  # noqa: E402
+from config import DRIFT, MIN_INFO, MIN_LINKS, SURE_INFO, SURE_M, SURE_SE  # noqa: E402
 
 BLUE, ORANGE, INK, MUTED = "#2a78d6", "#eb6834", "#0b0b0b", "#52514e"
-
-
 SMOOTHNESS = ["excellent", "good", "intermediate", "bad", "very_bad", "horrible", "very_horrible", "impassable", "—"]
 
 
@@ -180,7 +178,8 @@ def notebook(name: str, func, text: str):
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=130, bbox_inches="tight")
     png = base64.b64encode(buf.getvalue()).decode()
-    code = nbf.v4.new_code_cell(f"import sys\nsys.path.insert(0, \"../pipeline\")\nfrom figures import *\n\n{inspect.getsource(func)}\nfig, table = {func.__name__}()\ntable")
+    code = nbf.v4.new_code_cell(f'import sys\nsys.path.insert(0, "../pipeline")\nfrom figures import *\n\n'
+                                f'{inspect.getsource(func)}\nfig, table = {func.__name__}()\ntable')
     code.outputs = [nbf.v4.new_output("display_data", data={"image/png": png, "text/plain": "<Figure>"}),
                     nbf.v4.new_output("execute_result", data={"text/plain": table.round(2).to_string()},
                                       execution_count=1)]
@@ -193,12 +192,12 @@ def notebook(name: str, func, text: str):
 
 if __name__ == "__main__":
     same_tags_page()
-    notebook("osm_classes", osm_classes, """# OSM classes: predicted vs measured roughness
+    notebook("osm_classes", osm_classes, f"""# OSM classes: predicted vs measured roughness
 
-One block per `surface` value, its `smoothness` values below. The **prior** (orange) is what the map's *OSM* mode
-shows: per class (one per surface x smoothness tag pair) the median measured roughness of its link directions with
-information ≥ 3 (estimate.py). A class with fewer than 20 such link directions takes the prior of all links of its
-surface (the diamond then shows that), and with fewer than 20 on the surface too it isn't predictable (grey on the
-map). Shown: the 24 most common combinations (by length) with at least 10
-measured link directions. Right: km of links with this combination, and how many link directions are measured
-well enough (information ≥ 3).""")
+One block per `surface` value, its `smoothness` values below. The **prior** (orange) is what the map's *OSM tags*
+view shows: per class (one per surface x smoothness tag pair) the median measured roughness of its link directions
+with information ≥ {MIN_INFO:g} (estimate.py). A class with fewer than {MIN_LINKS} such link directions takes the prior
+of all links of its surface (the diamond then shows that), and with fewer than {MIN_LINKS} on the surface too it isn't
+predictable (grey on the map). Shown: the 24 most common combinations (by length) with at least 10 measured link
+directions. Right: km of links with this combination, and how many link directions are measured well enough
+(information ≥ {MIN_INFO:g}).""")

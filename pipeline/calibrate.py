@@ -39,10 +39,9 @@ import numpy as np
 import pandas as pd
 
 from common import PASSES
-from config import (AGE_HALF, AGE_POWER, CALIBRATION, CAL_DRIFT_INFO, CAL_MIN_NEW, CAL_MIN_PASSES, CAL_SPEED_MIN_S, LENGTH_EXP,
-                    DRIFT, LENGTH_REF_M, MIN_INFO, NEWEST_MONTHS, SPEED_EXP)
+from config import (AGE_HALF, AGE_POWER, CAL_DRIFT_INFO, CAL_MIN_NEW, CAL_MIN_PASSES, CAL_SPEED_MIN_S, CALIBRATION,
+                    DRIFT, LENGTH_EXP, LENGTH_REF_M, MIN_INFO, NEWEST_MONTHS, SPEED_EXP)
 from estimate import KEY, age_weight, age_years, length_weight, pass_weights, ride_fit, standard_error, weighted
-
 
 
 def scatter(p: pd.DataFrame, ref: np.ndarray, min_n: int) -> pd.Series:
@@ -83,7 +82,8 @@ def speed(p: pd.DataFrame) -> float:
         for k in keys:
             y, x = y - y.groupby(k).transform("mean"), x - x.groupby(k).transform("mean")
     fit = round(float((x * y).sum() / (x * x).sum()), 2)
-    print(f"speed exponent, ride + link direction fixed effects, {len(q):,} passes: fitted {fit:g}, in use {SPEED_EXP:g}")
+    print(f"speed exponent, ride + link direction fixed effects, {len(q):,} passes: fitted {fit:g}, "
+          f"in use {SPEED_EXP:g}")
     return fit
 
 
@@ -112,9 +112,10 @@ def main():
           pd.Series(age), scatter(p, age < NEWEST_MONTHS / 12, CAL_MIN_NEW), [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], 0,
           age_weight, np.arange(1, 20.1, 0.5), AGE_HALF, "years")
     sq = scatter(p, np.ones(len(p), bool), CAL_MIN_PASSES)
-    fitted["LENGTH_EXP"] = curve(f"pass length weight (metres / {LENGTH_REF_M:g})^k, reference: the other passes",
-          p.metres, sq, [0, 5, 10, 15, 20, 30, 50, 100, 1e5], 3, length_weight, np.arange(0, 1.01, 0.02),
-          LENGTH_EXP, "= k")
+    fitted["LENGTH_EXP"] = curve(
+        f"pass length weight (metres / {LENGTH_REF_M:g})^k, reference: the other passes",
+        p.metres, sq, [0, 5, 10, 15, 20, 30, 50, 100, 1e5], 3, length_weight, np.arange(0, 1.01, 0.02),
+        LENGTH_EXP, "= k")
     print("\nGPS error h_acc (no weight: no effect on the scatter)")
     print(bins(p.h_acc, sq, [0, 4, 6, 8, 10, 13, 16, 20], 0).round(2).to_string())
     print("\nmatch certainty (the weight is this probability itself; no effect on the scatter, see above)")

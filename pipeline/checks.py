@@ -19,7 +19,7 @@ import pandas as pd
 
 from common import LINKS_EST, PASSES
 from config import CHECK_LEVELS, CHECK_MIN_PASSES, MIN_INFO, NEWEST_MONTHS
-from estimate import KEY, pass_weights, ride_fit, standard_error, weighted
+from estimate import KEY, age_years, pass_weights, ride_fit, standard_error, weighted
 
 
 def main():
@@ -48,8 +48,7 @@ def main():
     sd_one = full.sd[full.information >= MIN_INFO].median()
     e = pd.read_parquet(LINKS_EST).set_index(KEY)
     prior = e.prior + (full.est - e.est).median()            # back to the passes' units (links_est: 0 = asphalt)
-    month = pd.PeriodIndex(p.month.astype(str), freq="M")
-    new = (month.max() - month).map(lambda d: d.n).to_numpy() < NEWEST_MONTHS
+    new = age_years(p) < NEWEST_MONTHS / 12
     held = weighted(ride_fit(p[new])[0]).set_index(KEY).est.rename("held")
     old = ride_fit(p[~new])[0].sample(frac=1, random_state=0)
     rank = old.groupby(KEY).cumcount()
@@ -63,6 +62,7 @@ def main():
         print(f"3. {n:2d} older passes (information {a.information.median():.2f}), {len(a):,} link directions: "
               f"best weight of the measurement for the newest year {(x * y).sum() / (x * x).sum():.2f}, "
               f"model {model:.2f}")
+
 
 if __name__ == "__main__":
     main()

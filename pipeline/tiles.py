@@ -3,14 +3,17 @@
 One feature per link and direction a bike may ride; for direction -1 the geometry is reversed, so every feature runs
 in the direction of travel: `line-offset` in web/map.js puts each direction on its own side of the street, and the
 one-way arrows follow it. Links without passes on minor ways (footway, service, track, path, ...) appear from zoom
-MINOR_ZOOM only, which keeps the low zooms light. GeoJSON lines -> tippecanoe, one run per first zoom (tippecanoe's
-per-feature minzoom loses lines that touch other lines) -> tile-join -> one PMTiles file.
+MINOR_ZOOM only, which keeps the low zooms light.
 
-The Rides view: what the estimates start from, every ride. From zoom RIDE_CLOSE_ZOOM on one line per pair of
+The Rides view: what the estimates start from, every ride. From zoom RIDE_CLOSE_ZOOM on, one line per pair of
 consecutive ride seconds with the later second's `norm` (its shaking relative to the ride's median); below, one line per
 RIDE_FAR_S seconds with their mean (finer is not seen there). Where a tile can't hold them all, tippecanoe leaves out
-lines where they are densest, so busy streets thin out and quiet ones keep their rides. To keep the riders untraceable (SimRa's terms), RIDE_CUT_M are left out at both ends of each ride, and the
-rest is cut into pieces of RIDE_PIECE_M of which every other one is left out; no times, no ride ids.
+lines where they are densest, so busy streets thin out and quiet ones keep their rides. To keep the riders untraceable
+(SimRa's terms), RIDE_CUT_M are left out at both ends of each ride, and the rest is cut into pieces of RIDE_PIECE_M of
+which every other one is left out; no times, no ride ids.
+
+GeoJSON lines -> tippecanoe, one run per first zoom -> tile-join -> one PMTiles file per layer. (tippecanoe's
+per-feature minzoom would be simpler, but it loses lines that touch other lines.)
 
     venv/bin/python pipeline/tiles.py
 """
@@ -60,15 +63,12 @@ def ride_features(sec: pd.DataFrame, step: int = 1):
         t, lat, lon, norm = (g[c].to_numpy() for c in ("t", "lat", "lon", "norm"))
         keep = shown(t, lat, lon)
         pairs = np.flatnonzero(keep[:-1] & keep[1:] & (np.diff(t) == 1))    # second i -> i + 1, both drawn
-        if len(pairs) == 0:
-            continue
-        run = np.cumsum(np.r_[True, np.diff(pairs) > 1])                     # unbroken runs of pairs
-        first = pairs[np.searchsorted(run, run)]                             # each run's first pair
-        piece = run * len(t) + (pairs - first) // step
-        for p in np.split(pairs, np.flatnonzero(np.diff(piece)) + 1):
-            i, j = p[0], p[-1] + 1
-            yield {"type": "Feature", "properties": {"n": round(float(norm[i + 1:j + 1].mean()), 2)},
-                   "geometry": {"type": "LineString", "coordinates": np.c_[lon[i:j + 1], lat[i:j + 1]].round(6).tolist()}}
+        for run in np.split(pairs, np.flatnonzero(np.diff(pairs) > 1) + 1):  # unbroken runs of pairs
+            for k in range(0, len(run), step):
+                i, j = run[k], run[min(k + step, len(run)) - 1] + 1           # seconds i to j
+                yield {"type": "Feature", "properties": {"n": round(float(norm[i + 1:j + 1].mean()), 2)},
+                       "geometry": {"type": "LineString",
+                                    "coordinates": np.c_[lon[i:j + 1], lat[i:j + 1]].round(6).tolist()}}
 
 
 def rides_features(keys: list, step: int = 1):
@@ -94,7 +94,8 @@ def tiles(groups: dict, layer: str, out, log):
                        check=True)
         geojson.unlink()
         parts.append(part)
-    # -pk: no tile size limit here, tippecanoe already kept each part's tiles small enough
+    # -pk: no tile size limit here, tippecanoe already kept each part's tiles small enough. tile-join warns when the
+    # parts end at different zooms (the rides): harmless, each zoom's tiles come from the parts that have it
     subprocess.run(["tile-join", "-o", str(out), "--force", "-pk", "--quiet", *map(str, parts)], check=True)
     for part in parts:
         part.unlink()
@@ -108,8 +109,8 @@ def main():
     df = pd.read_parquet(LINKS_EST).merge(links, on="link_id", how="left", suffixes=("", "_l"))
     df[NUM] = df[NUM].round(2)
     minor = (df.passes == 0) & ~df.highway.isin(MAJOR)
-    tiles({(MIN_ZOOM, MAX_ZOOM): features(df[~minor]), (MINOR_ZOOM, MAX_ZOOM): features(df[minor])}, "links", PMTILES,
-          log)
+    tiles({(MIN_ZOOM, MAX_ZOOM): features(df[~minor]), (MINOR_ZOOM, MAX_ZOOM): features(df[minor])},
+          "links", PMTILES, log)
 
     rides = pd.read_parquet(RIDES, columns=["ride_key", "status"])
     keys = rides.ride_key[rides.status == "ok"].tolist()

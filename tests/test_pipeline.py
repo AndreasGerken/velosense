@@ -245,6 +245,7 @@ def test_tiles_keep_touching_lines_that_start_at_a_later_zoom(monkeypatch, tmp_p
                                         check=True).stdout)
     per_zoom = {}
     for tile in decoded["features"]:
+        ns = per_zoom.setdefault(tile["properties"]["zoom"], set())
         for layer in tile["features"]:
-            per_zoom.setdefault(tile["properties"]["zoom"], set()).update(f["properties"]["n"] for f in layer["features"])
+            ns.update(f["properties"]["n"] for f in layer["features"])
     assert per_zoom == {z: {1} if z < 14 else {1, 2, 3} for z in range(10, 16)}

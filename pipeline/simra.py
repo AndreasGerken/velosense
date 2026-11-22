@@ -36,8 +36,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
-import re
 import os
+import re
 import zipfile
 from multiprocessing import get_context
 from pathlib import Path
@@ -223,9 +223,8 @@ def main(argv=None):
         df.to_parquet(tmp, index=False)
         os.replace(tmp, path)
     log(f"rides: {rides.status.value_counts().to_dict()}")
-    log("skipped / rejected reasons:\n" + rides[rides.status != "ok"].reason.str.replace(r"^\d+ kept", "N kept",
-                                                                                        regex=True)
-        .value_counts().head(10).to_string())
+    reasons = rides[rides.status != "ok"].reason.str.replace(r"^\d+ kept", "N kept", regex=True)
+    log("skipped / rejected reasons:\n" + reasons.value_counts().head(10).to_string())
     ok = rides[rides.status == "ok"]
     log(f"seconds: {rides.seconds.sum():,} in all, handled {rides.handled.sum():,}, kept {len(seconds):,} "
         f"({ok.kept.median():.0f} per ok ride, median)")
