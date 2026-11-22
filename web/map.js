@@ -3,7 +3,10 @@ const ROUGH = { stops: [-0.1, 0.1, 0.3, 0.5, 0.8], colors: ["#1a9850", "#a6d96a"
                 label: v => "×" + Math.exp(v).toFixed(1) };
 const INFO = { stops: [0.1, 1, 10, 100, 1000], colors: ["#edf8fb", "#b3cde3", "#8c96c6", "#8856a7", "#810f7c"],
                label: v => v, log: true };
-const FADE = { stops: [0.1, 1, 10], opacity: [0.12, 0.5, 1] };            // by information, on a log axis
+// lines fade with the uncertainty of the value they show (one standard error, log units):
+// full up to ±15 % (well measured: the year-to-year drift alone is ±11 %), faint at ±50 % (one ride) (choice)
+const FADE = { stops: [Math.log(1.15), Math.log(1.25), Math.log(1.5)], opacity: [1, 0.4, 0.12],
+               label: v => "±" + Math.round((Math.exp(v) - 1) * 100) + " %" };
 const MISSING = "#a8a8a8";
 const MEASURED = [">", ["get", "passes"], 0];
 const RATIO = "× as rough as good asphalt";
@@ -12,19 +15,24 @@ const MODES = {
   rides: { name: "Rides", hint: "raw recordings", prop: "n", scale: ROUGH, layer: "rides", unit: "× the ride's median",
            note: "What it starts from: a sample of SimRa rides, each second's shaking relative to the ride's own "
                + "median (ends cut off, parts left out)." },
-  est:   { name: "Measured", hint: "from the rides", prop: "est", scale: ROUGH, filter: MEASURED, fade: true, unit: RATIO,
+  est:   { name: "Measured", hint: "from the rides", prop: "est", scale: ROUGH, filter: MEASURED, fade: "se",
+           unit: RATIO,
            note: "Per street and riding direction, from all rides that passed; faint where few did." },
-  prior: { name: "OSM tags", hint: "predicted", prop: "prior", scale: ROUGH, missing: "not predictable", unit: RATIO,
-           note: "What the street's OpenStreetMap surface and smoothness tags predict." },
-  comb:  { name: "Combined", hint: "best guess", prop: "comb", scale: ROUGH, unit: RATIO,
-           note: "Measurement and OSM tags merged, each by how sure it is: a value for every street." },
-  z:     { name: "Rides vs. OSM", hint: "disagreement", prop: "z", filter: MEASURED, fade: true,
+  prior: { name: "OSM tags", hint: "predicted", prop: "prior", scale: ROUGH, missing: "not predictable", fade: "tau",
+           unit: RATIO,
+           note: "What the street's OpenStreetMap surface and smoothness tags predict; faint where streets with these "
+               + "tags differ a lot." },
+  comb:  { name: "Combined", hint: "best guess", prop: "comb", scale: ROUGH, fade: "comb_se", unit: RATIO,
+           note: "Measurement and OSM tags merged, each by how sure it is: a value for every street; faint where it "
+               + "rests on the tags or few rides." },
+  z:     { name: "Measured vs. OSM", hint: "disagreement", prop: "z", filter: MEASURED, fade: "se",
            scale: { stops: [-4, -2, 0, 2, 4], colors: ["#2166ac", "#67a9cf", "#d9d9d9", "#ef8a62", "#b2182b"],
                     label: v => v }, unit: "measured minus OSM, in standard errors (z)",
            note: "Blue: smoother than its tags say, red: rougher. Beyond ±2 they clearly disagree." },
   information: { name: "Data amount", hint: "how sure", prop: "information", filter: MEASURED, scale: INFO,
            unit: "information (1 ≈ one recent ride)",
-           note: "How much the measurement rests on: the rides that passed, weighted by age, length and match certainty." },
+           note: "How much the measurement rests on: the rides that passed, weighted by age, length, match certainty "
+               + "and how much the ride scatters." },
 };
 
 // MapLibre's CSP build: its worker is a file of this site, not a blob, so the page's Content-Security-Policy can stay strict
@@ -67,14 +75,15 @@ function setMode(key) {
     const show = ["all", m.missing ? true : ["has", m.prop], m.filter || true];
     map.setFilter("links", show);
     map.setFilter("oneway", ["all", ["has", "oneway"], show]);
-    map.setPaintProperty("links", "line-opacity", m.fade ? ramp("information", FADE.stops, FADE.opacity, true) : 1);
+    map.setPaintProperty("links", "line-opacity", m.fade ? ramp(m.fade, FADE.stops, FADE.opacity) : 1);
   } else map.setPaintProperty("rides", "line-color", color);
   document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.k === key));
   const bar = (colors, ticks) => `<div class="bar" style="background:linear-gradient(to right,${colors.join(",")})"></div>
      <div class="ticks">${ticks.map(t => `<span>${t}</span>`).join("")}</div>`;
   document.getElementById("legend").innerHTML = `<div class="unit">${m.unit}</div>` + bar(s.colors, s.stops.map(s.label))
     + (m.missing ? `<div class="grey"><span style="display:inline-block;width:18px;height:6px;background:${MISSING};margin-right:4px"></span>${m.missing}</div>` : "")
-    + (m.fade ? `<div class="fade">${bar(FADE.opacity.map(o => `rgba(60,60,60,${o})`), FADE.stops)}<div class="grey">opacity: information</div></div>` : "");
+    + (m.fade ? `<div class="fade">${bar(FADE.opacity.map(o => `rgba(60,60,60,${o})`), FADE.stops.map(FADE.label))}
+                 <div class="grey">faint: unsure (± one standard error)</div></div>` : "");
   document.getElementById("note").textContent = m.note;
   try { localStorage.setItem("mode", key); } catch (e) {}
 }
@@ -172,7 +181,7 @@ map.on("load", () => {
       ["measured", rough(p.est, p.se)],
       ["OSM tags", p.prior === undefined ? "not predictable" : rough(p.prior, p.tau) + (p.bysurf ? grey(`all ${p.surface}`) : "")],
       ["combined", rough(p.comb, p.comb_se)],
-      ["rides vs. OSM", p.z === undefined ? "–" : "z = " + p.z.toFixed(1)],
+      ["measured vs. OSM", p.z === undefined ? "–" : "z = " + p.z.toFixed(1)],
       ["passes", p.passes + grey("rides on this segment")],
       ["data amount", (p.information === undefined ? 0 : p.information.toFixed(1)) + grey("information")],
       ["OSM class", `${p.surface || "–"} / ${p.smoothness || "–"}` + grey("surface / smoothness for bikes")],

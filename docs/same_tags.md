@@ -2,8 +2,8 @@
 
 OpenStreetMap's `smoothness` tag sorts streets into a few classes (`excellent`, `good`, `intermediate`, ...), each
 judged by a mapper. The rides measure every street on one scale. Within one pair of `surface` and `smoothness` tags
-the measured streets spread widely: among the 3,454 well-measured segments tagged `asphalt/good`, the middle 80 %
-range from ×0.75 to ×1.20, the extremes from ×0.47 to ×2.27. The map's OSM view
+the measured streets spread widely: among the 3,815 well-measured segments tagged `asphalt/good`, the middle 80 %
+range from ×0.75 to ×1.19, the extremes from ×0.47 to ×2.23. The map's OSM view
 gives each of them the same value.
 
 > **A proof of concept, not a final result.** The numbers here are not exact yet: parts of the method are still open
@@ -22,12 +22,12 @@ value, smoothest first. Right: the number of segments.
 
 | tag pair | segments | median | middle 80 % | lowest | highest | OSM value on the map |
 |---|---|---|---|---|---|---|
-| `asphalt/excellent` | 1,594 | ×0.92 | ×0.71 – ×1.13 | ×0.42 | ×1.72 | ×0.95 |
-| `asphalt/good` | 3,454 | ×0.96 | ×0.75 – ×1.20 | ×0.47 | ×2.27 | ×1.00 |
-| `asphalt/intermediate` | 229 | ×1.03 | ×0.82 – ×1.40 | ×0.63 | ×2.00 | ×1.08 |
-| `paving_stones/good` | 437 | ×1.14 | ×0.96 – ×1.49 | ×0.70 | ×2.35 | ×1.16 |
-| `paving_stones/intermediate` | 499 | ×1.16 | ×0.97 – ×1.47 | ×0.53 | ×2.16 | ×1.17 |
-| `sett/intermediate` | 95 | ×1.43 | ×1.12 – ×2.10 | ×0.77 | ×3.32 | ×1.35 |
+| `asphalt/excellent` | 1,746 | ×0.93 | ×0.71 – ×1.13 | ×0.42 | ×1.79 | ×0.95 |
+| `asphalt/good` | 3,815 | ×0.96 | ×0.75 – ×1.19 | ×0.47 | ×2.23 | ×1.00 |
+| `asphalt/intermediate` | 276 | ×1.04 | ×0.82 – ×1.35 | ×0.62 | ×2.08 | ×1.09 |
+| `paving_stones/good` | 511 | ×1.15 | ×0.96 – ×1.49 | ×0.66 | ×2.40 | ×1.17 |
+| `paving_stones/intermediate` | 558 | ×1.17 | ×0.98 – ×1.45 | ×0.53 | ×2.27 | ×1.18 |
+| `sett/intermediate` | 115 | ×1.39 | ×1.09 – ×2.04 | ×0.79 | ×3.32 | ×1.35 |
 
 This doesn't make the tags wrong: a class is a range, and the measurement places each street within it, on a scale
 that compares streets and cities. An extreme value is a hint to look again: the street may have changed since it was

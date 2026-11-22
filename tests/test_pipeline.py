@@ -157,6 +157,27 @@ def test_combine_without_prior_or_passes():
     c = estimate.combine(e)
     assert np.allclose(c.comb, [0.5, 0.2, 0.25])
     assert np.isnan(c.z[0]) and np.isnan(c.z[1])
+    assert np.isclose(c.z[2], 0.5 / np.sqrt(0.1 ** 2 + 0.1 ** 2 - estimate.DRIFT ** 2))    # the drift is no part of z
+
+
+def test_ride_fit_takes_off_offsets_and_weighs_noisy_rides_less():
+    # 30 rides over the same 40 links; each ride reads off by its own offset; ride 0 scatters six times as much
+    rng = np.random.default_rng(0)
+    rides, links = 30, 40
+    offset, link_value = rng.normal(0, 0.2, rides), rng.normal(0, 0.3, links)
+    noise = np.where(np.arange(rides) == 0, 0.3, 0.05)
+    r, l = np.repeat(np.arange(rides), links), np.tile(np.arange(links), rides)
+    p = pd.DataFrame({"ride_key": r.astype(str), "link_id": l, "direction": 1, "w": 1.0,
+                      "value": link_value[l] + offset[r] + rng.normal(0, noise[r])})
+    q, _ = estimate.ride_fit(p)
+    left = q.groupby(r).value.mean() - link_value.mean() - (q.value.mean() - link_value.mean())
+    assert left.std() < 0.1 * offset.std()                                     # the offsets are taken off
+    assert q.w[r == 0].iloc[0] < 0.5 * q.w[r == 1].iloc[0]                       # the noisy ride counts less
+
+
+def test_wide_sd_is_the_sd_of_a_normal_distribution():
+    x = np.random.default_rng(0).normal(0, 0.3, 100_000)
+    assert abs(estimate.wide_sd(x) - 0.3) < 0.01
 
 
 

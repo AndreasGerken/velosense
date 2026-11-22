@@ -1,4 +1,5 @@
 {
   "SPEED_EXP": 0.5,
-  "LENGTH_EXP": 0.14
+  "LENGTH_EXP": 0.14,
+  "DRIFT": 0.11
 }

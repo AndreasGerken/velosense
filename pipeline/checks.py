@@ -2,12 +2,13 @@
 
 1. Normalization: on link directions with >= CHECK_MIN_PASSES passes, the spread of pass values is smaller with
    `norm` (per-ride median removed) than with the raw `value`.
-2. Reliability: rides split in two halves (even / odd SimRa id); on link directions with information >= CHECK_LEVELS
-   in both halves, the correlation of the two halves' estimates.
+2. Reliability: rides split in two halves (even / odd SimRa id), the ride fit (offset and noise per ride) run in each
+   half on its own; on link directions with information >= CHECK_LEVELS in both halves, the correlation of the two
+   halves' estimates, with and without the ride fit.
 3. Weight of the measurement against the OSM prior, for today: the newest year's passes are held out; on link
    directions with them and with >= n older passes, n random older passes are measured. The best weight (the slope
    of held-out - prior on measured - prior) should match the weight the model gives (1/se² against 1/tau²), which
-   counts the older passes less by their age.
+   counts the older passes less by their age. The ride fit runs on the older and on the newest passes separately.
 
     venv/bin/python pipeline/checks.py
 """
@@ -18,7 +19,7 @@ import pandas as pd
 
 from common import LINKS_EST, PASSES
 from config import CHECK_LEVELS, CHECK_MIN_PASSES, MIN_INFO, NEWEST_MONTHS
-from estimate import KEY, pass_weights, standard_error, weighted
+from estimate import KEY, pass_weights, ride_fit, standard_error, weighted
 
 
 def main():
@@ -33,22 +34,24 @@ def main():
 
     # 2. split-half reliability
     rid = p.ride_key.astype(str).str.extract(r"VM2_(-?\d+)")[0].astype(np.int64)
-    halves = [weighted(p[rid % 2 == k]).set_index(KEY) for k in (0, 1)]
-    both = halves[0].merge(halves[1], left_index=True, right_index=True, suffixes=("_a", "_b"))
+    halves = [p[(rid % 2 == k).to_numpy()] for k in (0, 1)]
+    plain = [weighted(h).set_index(KEY) for h in halves]
+    fitted = [weighted(ride_fit(h)[0]).set_index(KEY) for h in halves]
     for n in CHECK_LEVELS:
-        b = both[(both.information_a >= n) & (both.information_b >= n)]
-        print(f"2. split halves, information >= {n:g} in both: {len(b):,} link directions, "
-              f"r = {np.corrcoef(b.est_a, b.est_b)[0, 1]:.2f}")
+        sel = plain[0].index[plain[0].information >= n].intersection(plain[1].index[plain[1].information >= n])
+        r = [np.corrcoef(h[0].est.reindex(sel), h[1].est.reindex(sel))[0, 1] for h in (fitted, plain)]
+        print(f"2. split halves, information >= {n:g} in both: {len(sel):,} link directions, "
+              f"r = {r[0]:.3f} (without the ride fit {r[1]:.3f})")
 
     # 3. weight of the measurement against the prior, for today
-    full = weighted(p).set_index(KEY)
+    full = weighted(ride_fit(p)[0]).set_index(KEY)
     sd_one = full.sd[full.information >= MIN_INFO].median()
     e = pd.read_parquet(LINKS_EST).set_index(KEY)
     prior = e.prior + (full.est - e.est).median()            # back to the passes' units (links_est: 0 = asphalt)
     month = pd.PeriodIndex(p.month.astype(str), freq="M")
     new = (month.max() - month).map(lambda d: d.n).to_numpy() < NEWEST_MONTHS
-    held = weighted(p[new]).set_index(KEY).est.rename("held")
-    old = p[~new].sample(frac=1, random_state=0)
+    held = weighted(ride_fit(p[new])[0]).set_index(KEY).est.rename("held")
+    old = ride_fit(p[~new])[0].sample(frac=1, random_state=0)
     rank = old.groupby(KEY).cumcount()
     for n in CHECK_LEVELS:
         a = weighted(old[rank < n]).set_index(KEY)

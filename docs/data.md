@@ -23,11 +23,11 @@ Roughness is **"× as rough as good asphalt"**: ×1.5 shakes a bike 1.5 times as
 | `name`, `highway`, `surface`, `smoothness` | OSM tags (`surface:bicycle` / `smoothness:bicycle` where the way has them) |
 | `length_m` | the segment's length |
 | `passes` | rides that passed it in this direction |
-| `information` | how much the measurement rests on: the passes weighted by age, length and match certainty (1 ≈ one recent, clearly matched 20 m pass) |
-| `measured`, `measured_pm` | roughness measured from the rides |
-| `osm`, `osm_pm` | what the OSM tags predict (empty: not predictable from the tags) |
+| `information` | how much the measurement rests on: the passes weighted by age, length, match certainty and how much their ride scatters (1 ≈ one recent, clearly matched 20 m pass of a typical ride) |
+| `measured`, `measured_pm` | roughness measured from the rides; its ± is about today, so it includes how much a street changes from year to year (never below about ±11 %) |
+| `osm`, `osm_pm` | what the OSM tags predict (empty: not predictable from the tags); its ± is how much streets with these tags differ |
 | `combined`, `combined_pm` | both merged, each weighted by how sure it is |
-| `z` | measured minus OSM, in standard errors: beyond ±2 they clearly disagree |
+| `z` | measured minus OSM, in standard errors (without the year-to-year change: both describe the same years): beyond ±2 they clearly disagree |
 | `geometry` | the segment's line in riding direction (WKT, WGS 84) |
 
 How each value is calculated: [how_it_works.md](how_it_works.md).

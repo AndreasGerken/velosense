@@ -18,7 +18,13 @@ other passes on the same line, has the same mix.
 Speed: the slope of log(swell) on log(speed) over passes, with ride and link-direction fixed effects (the same rider
 on the same surface, faster or slower).
 
-The fitted numbers (SPEED_EXP, LENGTH_EXP) are written to calibration.json, which config.py reads. Run it after
+Drift: the estimate from the older years and from the newest year (the ride fit run on each), on link directions
+with information >= CAL_DRIFT_INFO in both. Their difference spreads more than their standard errors say: the street
+moved (resurfaced, worn) or the riders and phones changed. DRIFT = √(var(difference) - mean(se_old² + se_new²)).
+Two halves of the rides from the same years differ by less than their standard errors (checked), so the extra is
+the time.
+
+The fitted numbers (SPEED_EXP, LENGTH_EXP, DRIFT) are written to calibration.json, which config.py reads. Run it after
 match.py: estimate.py then uses the new length exponent; a new speed exponent needs simra.py and the steps after it
 again (it changes little: the fit doesn't depend on the exponent in use). The age weight is printed, not written: it
 is a choice (config.py AGE_HALF).
@@ -33,9 +39,9 @@ import numpy as np
 import pandas as pd
 
 from common import PASSES
-from config import (AGE_HALF, AGE_POWER, CALIBRATION, CAL_MIN_NEW, CAL_MIN_PASSES, CAL_SPEED_MIN_S, LENGTH_EXP,
-                    LENGTH_REF_M, NEWEST_MONTHS, SPEED_EXP)
-from estimate import KEY, age_weight, age_years, length_weight
+from config import (AGE_HALF, AGE_POWER, CALIBRATION, CAL_DRIFT_INFO, CAL_MIN_NEW, CAL_MIN_PASSES, CAL_SPEED_MIN_S, LENGTH_EXP,
+                    DRIFT, LENGTH_REF_M, MIN_INFO, NEWEST_MONTHS, SPEED_EXP)
+from estimate import KEY, age_weight, age_years, length_weight, pass_weights, ride_fit, standard_error, weighted
 
 
 
@@ -81,6 +87,22 @@ def speed(p: pd.DataFrame) -> float:
     return fit
 
 
+def drift(p: pd.DataFrame) -> float:
+    new = age_years(p) < NEWEST_MONTHS / 12
+    parts = []
+    for part in (p[~new], p[new]):
+        e = weighted(ride_fit(part.assign(w=pass_weights(part)))[0])
+        e["se"] = standard_error(e, e.sd[e.information >= MIN_INFO].median(), drift=0).to_numpy()
+        parts.append(e.set_index(KEY))
+    j = parts[0].join(parts[1], how="inner", lsuffix="_old", rsuffix="_new")
+    j = j[(j.information_old >= CAL_DRIFT_INFO) & (j.information_new >= CAL_DRIFT_INFO)]
+    extra = (j.est_old - j.est_new).var() - (j.se_old ** 2 + j.se_new ** 2).mean()
+    fit = round(float(np.sqrt(max(extra, 0))), 2)
+    print(f"drift, {len(j):,} link directions with information >= {CAL_DRIFT_INFO:g} before and in the newest year: "
+          f"fitted {fit:g}, in use {DRIFT:g}")
+    return fit
+
+
 def main():
     p = pd.read_parquet(PASSES)
     fitted = {"SPEED_EXP": speed(p)}
@@ -97,10 +119,11 @@ def main():
     print(bins(p.h_acc, sq, [0, 4, 6, 8, 10, 13, 16, 20], 0).round(2).to_string())
     print("\nmatch certainty (the weight is this probability itself; no effect on the scatter, see above)")
     print(bins(p.match_p, sq, [0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.97, 1.001], -1).round(2).to_string())
+    fitted["DRIFT"] = drift(p)
     CALIBRATION.write_text(json.dumps(fitted, indent=2) + "\n")
-    in_use = {"SPEED_EXP": SPEED_EXP, "LENGTH_EXP": LENGTH_EXP}
+    in_use = {"SPEED_EXP": SPEED_EXP, "LENGTH_EXP": LENGTH_EXP, "DRIFT": DRIFT}
     print(f"\n{fitted} -> {CALIBRATION}" + ("" if fitted == in_use else
-          "\nchanged: rerun simra.py (speed) or estimate.py (length) and the steps after it"))
+          "\nchanged: rerun simra.py (speed) or estimate.py (length, drift) and the steps after it"))
 
 
 if __name__ == "__main__":

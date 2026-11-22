@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 from common import LINKS, LINKS_EST, ROOT  # noqa: E402
-from config import MIN_INFO, SURE_INFO, SURE_M, SURE_SE  # noqa: E402
+from config import DRIFT, MIN_INFO, SURE_INFO, SURE_M, SURE_SE  # noqa: E402
 
 BLUE, ORANGE, INK, MUTED = "#2a78d6", "#eb6834", "#0b0b0b", "#52514e"
 
@@ -91,7 +91,8 @@ def same_tags(pairs: int = 6, min_links: int = 50):
     pairs (>= min_links each), one direction per link (the better measured); sorted by the OSM value"""
     links = pd.read_parquet(LINKS, columns=["link_id", "length", "surface", "smoothness"])
     e = pd.read_parquet(LINKS_EST).merge(links, on="link_id")
-    e = e[(e.information >= SURE_INFO) & (e.se <= SURE_SE) & (e.length >= SURE_M)
+    noise = np.sqrt(e.se ** 2 - DRIFT ** 2)                  # the spread at one time: without the drift
+    e = e[(e.information >= SURE_INFO) & (noise <= SURE_SE) & (e.length >= SURE_M)
           & e.surface.notna() & e.smoothness.notna()]
     e = e.sort_values("information", ascending=False).drop_duplicates("link_id")
     e["pair"] = e.surface + "/" + e.smoothness

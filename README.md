@@ -27,11 +27,14 @@ Roughness is shown as **"× as rough as good asphalt"**: ×1.5 shakes a bike 1.5
 `surface=asphalt, smoothness=good` at the same speed. The map's views go the way the method does:
 
 * **Rides**: what it starts from, a sample of the recorded rides, each second's shaking relative to its ride.
-* **Measured**: per street and riding direction, from all rides that passed; faint where few did.
+* **Measured**: per street and riding direction, from all rides that passed.
 * **OSM tags**: what the street's surface and smoothness tags predict.
 * **Combined**: both merged, each weighted by how sure it is: a value for every street.
-* **Rides vs. OSM**: where the measurement and the tags disagree.
+* **Measured vs. OSM**: where the measurement and the tags disagree.
 * **Data amount**: how much the measurement rests on.
+
+Every value comes with its uncertainty, and every view fades where it is unsure: a street known only from its tags
+shows fainter than one many rides passed.
 
 How it's calculated, where every number comes from and how it's checked: [docs/how_it_works.md](docs/how_it_works.md).
 
@@ -46,12 +49,16 @@ final result: parts of the method and its calibration are still open (see *Outlo
 
 * **Comparable** between streets and cities: `smoothness=good` is a judgement, made by many mappers in many places;
   a measured ×1.2 means the same everywhere. Among the well-measured streets tagged `asphalt/good`, the middle 80 %
-  range from ×0.75 to ×1.20, the extremes from ×0.47 to ×2.27: a spread that a tag can't show (figure below).
+  range from ×0.75 to ×1.19, the extremes from ×0.47 to ×2.23: a spread that a tag can't show (figure below).
 * **Per riding direction**: each side of a street is measured on its own.
 * **Up to date**: new rides count more than old ones, so the values follow the streets as they change.
-* **Where to look again**: 6 % of the well-measured street directions (about 3,800) differ clearly from their tags
-  (the *Rides vs. OSM* view). The street may have changed since it was tagged, or the tag was a close call: a hint for
-  a mapper on the spot, not a correction.
+* **Says how sure it is**: each value's ± comes from how many rides passed and how well they agree, how much the
+  streets with the same tags differ, and how much a street changes from year to year (about ±11 %). Each ride is
+  compared with the others on its streets: one that reads too rough or too smooth all along is shifted back, one
+  that scatters more counts less.
+* **Where to look again**: 5 % of the well-measured street directions (about 3,000) differ clearly from their tags
+  (the *Measured vs. OSM* view). The street may have changed since it was tagged, or the tag was a close call: a
+  hint for a mapper on the spot, not a correction.
 
 <a href="docs/same_tags.md"><img src="docs/same_tags.png" width="560" alt="Measured roughness per OSM tag pair: one dot per street segment"></a>
 
@@ -87,6 +94,8 @@ The map is a demo for now. To become infrastructure others build on:
 * **Cycle tracks without their own way**: where OSM maps a track only as tags on its road, riders on the road and on
   the track get one value.
 * **Less bias**: slow streets and short segments (near junctions) still read somewhat rougher.
+* **Trust clear disagreement sooner**: streets with the same tags have more outliers than the merging assumes, so a
+  street whose rides clearly contradict its tags could lean on the rides earlier.
 
 ## Code
 

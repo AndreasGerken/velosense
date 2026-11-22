@@ -61,8 +61,22 @@ AGE_HALF = 3.0          # years: a pass this old counts half (choice: at 5 years
 AGE_POWER = 4           # how sharply the age weight drops around AGE_HALF: nearly full for a year (choice)
 LENGTH_REF_M = 20.0     # m: a pass this long counts 1
 LENGTH_EXP = FITTED["LENGTH_EXP"] # pass weight ~ (metres / LENGTH_REF_M)^LENGTH_EXP (fitted)
+FIT_ROUNDS = 2          # rounds of the ride fit (offset and noise per ride): after the first, the rides' consistent
+                        # offsets measure 0 (checked)
+FIT_MIN_OTHERS = 3.0    # information the other passes on a link direction need for a pass's residual to count in its
+                        # ride's fit: about 3 rides (choice, as MIN_INFO)
+FIT_HALF_MIN = 10       # residuals a ride needs on its even and on its odd links to measure how much true offsets
+                        # spread (choice: a stable mean)
+NOISE_PRIOR_N = 10      # a ride's noise is shrunk toward the median ride's as if by this many passes (choice: 1, 3 and
+                        # 10 give the same split-half reliability within 0.002)
+DRIFT = FITTED["DRIFT"]  # how far a street's value moves from the older years to the newest one, beyond the noise
+                        # (log units, fitted): added to every measurement's standard error, which is about today
 MIN_INFO = 3.0          # information a link direction needs to teach the OSM prior: about 3 new 20 m passes (choice)
 MIN_LINKS = 20          # a class needs this many such link directions for a prior: a stable median (choice)
+TAU_TAIL = 0.10         # the prior's spread is read from the middle 80 % of its class (choice: well-measured streets
+                        # beyond 2 standard errors of their prediction: 7.4 % with the middle half, 5.8 % with the
+                        # middle 80 %, 5.2 % with 90 %, normal: 4.6 %; beyond 1: 28.9 % with 80 %, 27.5 % with 90 %,
+                        # normal: 31.7 %; check 3 fits both alike)
 TAU_MIN = 0.10          # the prior's uncertainty never below this: x1.1 (choice, for small classes)
 
 # ---- tiles.py --------------------------------------------------------------------------------------------------------
@@ -86,9 +100,12 @@ CHECK_LEVELS = (1, 3, 10)  # check 2: information in both halves; check 3: numbe
 CHECK_MIN_PASSES = 10   # check 1: link directions with this many passes
 CAL_MIN_PASSES = 20     # calibrate: a reference mean needs this many other passes (its own noise is then small)
 CAL_MIN_NEW = 10        # calibrate, age: this many newest-year passes (fewer exist per link direction)
+CAL_DRIFT_INFO = 10.0   # calibrate, drift: link directions with this much information both before and in the newest
+                        # year (choice: 3, 10 and 30 give the same drift within 0.01)
 CAL_SPEED_MIN_S = 5     # calibrate, speed: passes of at least 5 s (a steady speed)
 
 # ---- figures.py: the spread within one tag pair (docs/same_tags.md) --------------------------------------------------
 SURE_INFO = 10.0        # only well-measured link directions: about ten new 20 m passes (choice)
-SURE_SE = 0.08          # and a standard error of at most x1.08: small against the spread shown (choice)
+SURE_SE = 0.08          # and a standard error (noise, without the drift) of at most x1.08: small against the spread
+                        # shown (choice)
 SURE_M = 30.0           # m: and at least this long, away from the junction effect of short links (choice)

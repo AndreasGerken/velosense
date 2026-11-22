@@ -59,10 +59,10 @@
   .maplibregl-popup-content table td:first-child { white-space: nowrap; font-weight: bold; }
   @media (max-width: 600px) {   /* phones: a smaller panel; the welcome text explains the faint lines */
     .window { padding: 16px 16px 64px; }
-    #panel { padding: 6px 8px; max-width: 220px; font-size: 12px; }
+    #panel { padding: 6px 8px; max-width: 240px; font-size: 12px; }
     #modes { grid-template-columns: 1fr 1fr; }      /* phones: two columns, the names only */
     #modes .hint, #note, #panel .fade { display: none; }   /* the About window explains the views */
-    #panel button { padding: 2px 5px; }
+    #panel button { padding: 2px 5px; white-space: nowrap; }
   }
 </style>
 </head>
@@ -115,10 +115,11 @@
   <p>Every street is shown per riding direction (each on its own side). Roughness is "× as rough as good asphalt":
      ×1.5 shakes a bike 1.5 times as much as a street tagged <i>surface=asphalt, smoothness=good</i> at the same speed.
      A value <span class="grey">± x</span> is its uncertainty (one standard error: the true value lies within it
-     about 2 times in 3).</p>
+     about 2 times in 3). Every view fades where its value is unsure: full up to ±15 %, faint at ±50 %.</p>
   <h3>Rides</h3>
-  <p>What everything starts from: a sample of the SimRa rides (half at random, half picked so that quiet streets show too), each second's vertical shaking relative to the
-     ride's own median (that takes out the phone, its mount and the bike). To keep the riders untraceable, the start
+  <p>What everything starts from: a sample of the SimRa rides (half at random, half picked so that quiet streets
+     show too), each second's vertical shaking relative to the ride's own median (that takes out the phone, its mount
+     and the bike). To keep the riders untraceable, the start
      and end of every ride and every other piece of it are left out.</p>
   <h3>Measured</h3>
   <p>From all SimRa rides. Each second of a ride gives the vertical shaking, corrected for speed and for the rider's
@@ -126,20 +127,28 @@
      street around it, not just a kerb at its end. The seconds are matched to the street network; the seconds of
      one ride on one street segment and direction form a <b>pass</b>. The estimate is the weighted mean of its
      passes.</p>
+  <p>Each ride is also compared with the other rides on its streets. A ride that reads rougher or smoother than the
+     others all along is shifted back (its median can be off, e.g. on a ride over much cobblestone), and a ride
+     whose values scatter more counts less.</p>
+  <p>The ± comes from how well the passes agree and how many there are, plus how much a street changes over time:
+     even many older rides don't tell today's value closer than about ±11 %.</p>
   <h3>Data amount</h3>
   <p>The passes, each counted by its weight: <b>age</b> (a pass counts half at 3 years old and ×0.1 at 5),
-     <b>length</b> (a 20 m pass counts 1, a longer one a little more) and the matcher's <b>certainty</b> that the pass is on this street and not on a parallel one (0.5 for a cycle track exactly as
-     close as the road). This is the <b>information</b>: 1 = one new, clearly matched 20 m pass. Measured and Rides vs.
-     OSM fade out where it is low.</p>
+     <b>length</b> (a 20 m pass counts 1, a longer one a little more), the matcher's <b>certainty</b> that the
+     pass is on this street and not on a parallel one (0.5 for a cycle track exactly as close as the road) and how
+     little the <b>ride</b> scatters. This is the <b>information</b>: 1 = one new, clearly matched 20 m pass of a
+     typical ride.</p>
   <h3>OSM tags</h3>
   <p>What OpenStreetMap's surface and smoothness tags predict (surface:bicycle and smoothness:bicycle where a
      road has its own surface for bikes): the typical measured roughness of the streets with
      the same pair of tags (if at least 20 are well measured: information ≥ 3), else of all streets with the same
-     surface. Without a surface tag nothing is predictable (grey). Its ± is how much these streets really differ.</p>
+     surface. Without a surface tag nothing is predictable (grey). Its ± is how much these streets really differ,
+     outliers included (read from the middle 80 % of them).</p>
   <h3>Combined</h3>
   <p>OSM and the measurement merged, each weighted by how sure it is (1 / uncertainty²). Without rides it is the
-     OSM prediction, without an OSM prediction the measurement.</p>
-  <h3>Rides vs. OSM</h3>
+     OSM prediction, without an OSM prediction the measurement. Its ± follows from both: small where many rides
+     passed, as large as the OSM one where none did, so a street known only from its tags shows faint.</p>
+  <h3>Measured vs. OSM</h3>
   <p>Measured minus OSM, in units of their combined uncertainty (z). Beyond ±2 the street is clearly smoother
      (blue) or rougher (red) than its tags say.</p>
   <p class="grey">Details and the checks behind every number:
