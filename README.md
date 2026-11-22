@@ -45,17 +45,15 @@ smoothness on 47 %, by hand: on the ground, from photos, street by street. This 
 it the street network, the riding directions and the prediction wherever few rides pass.
 
 Recorded rides add a measurement, on one scale for every street. The numbers below are a proof of concept, not a
-final result: parts of the method and its calibration are still open (see *Outlook*).
+final result (see *Known issues*).
 
 * **Comparable** between streets and cities: `smoothness=good` is a judgement, made by many mappers in many places;
-  a measured ×1.2 means the same everywhere. Among the well-measured streets tagged `asphalt/good`, the middle 80 %
-  range from ×0.75 to ×1.19, the extremes from ×0.47 to ×2.23: a spread that a tag can't show (figure below).
+  a measured ×1.2 means the same everywhere. The well-measured streets tagged `asphalt/good` range from ×0.75 to
+  ×1.19 (middle 80 %): a spread that a tag can't show (figure below).
 * **Per riding direction**: each side of a street is measured on its own.
 * **Up to date**: new rides count more than old ones, so the values follow the streets as they change.
 * **Says how sure it is**: each value's ± comes from how many rides passed and how well they agree, how much the
-  streets with the same tags differ, and how much a street changes from year to year (about ±11 %). Each ride is
-  compared with the others on its streets: one that reads too rough or too smooth all along is shifted back, one
-  that scatters more counts less.
+  streets with the same tags differ, and how much a street changes from year to year.
 * **Where to look again**: 5 % of the well-measured street directions (about 3,000) differ clearly from their tags
   (the *Measured vs. OSM* view). The street may have changed since it was tagged, or the tag was a close call: a
   hint for a mapper on the spot, not a correction.
@@ -73,29 +71,28 @@ Two downloads from the live map's *Data* window, described in [docs/data.md](doc
   measured, OSM and combined roughness, their uncertainties and the line (WKT).
 * `tag_roughness.csv`: the roughness per OSM surface and smoothness tag pair, a ready cost table for a router.
 
-A demo: the values may contain errors and biases (see *Outlook*). They come from SimRa rides and OpenStreetMap and
-keep their licences (see *License*).
+A demo: the values may contain errors and biases (see *Known issues*). They come from SimRa rides and OpenStreetMap
+and keep their licences (see *License*).
 
 ## Outlook
 
 The map is a demo for now. To become infrastructure others build on:
 
-* **Roughness in open routers** (BRouter, GraphHopper, Valhalla): routing with a comfort slider, from the fastest
-  route to the smoothest one.
-* **Routes that fill the gaps**: let routes include streets with few rides, so riders measure them on the way and
-  the map grows by crowdsourcing.
-* **Any region**: the pipeline runs wherever rides are recorded, with an OSM extract; Berlin is where the rides are
-  now.
-* **An open ride format**, so rides from any recording app can feed in, under an open licence (the SimRa rides
-  allow no commercial use, which keeps the values out of commercial routers).
+* **Roughness in open routers** (BRouter, GraphHopper, Valhalla): a comfort slider from the fastest route to the
+  smoothest one.
+* **Routes that fill the gaps**: routes that include streets with few rides, so riders measure them on the way.
+* **Any region** with recorded rides and an OSM extract.
+* **An open ride format**, so rides from any app can feed in under an open licence (the SimRa rides allow no
+  commercial use, which keeps the values out of commercial routers).
 * **Back to OSM**: the clear disagreements as hints for mappers, e.g. as a MapRoulette challenge.
-* **Better matching** where a road, its cycle track and a footway lie close together: rides can still land on the
-  wrong one.
-* **Cycle tracks without their own way**: where OSM maps a track only as tags on its road, riders on the road and on
-  the track get one value.
-* **Less bias**: slow streets and short segments (near junctions) still read somewhat rougher.
-* **Trust clear disagreement sooner**: streets with the same tags have more outliers than the merging assumes, so a
-  street whose rides clearly contradict its tags could lean on the rides earlier.
+
+## Known issues
+
+* Where a road, its cycle track and a footway lie close together, rides can land on the wrong one.
+* Where OSM maps a cycle track only as tags on its road, the road and the track get one value.
+* Slow streets and short segments (near junctions) read somewhat rougher.
+* Streets with the same tags have more outliers than the merging assumes, so a street whose rides clearly contradict
+  its tags still leans on the tags more than it should.
 
 ## Code
 
@@ -154,10 +151,9 @@ memory cap.
 
 ## Privacy
 
-No cookies, no tracking, no analytics services, no access log. The live site only counts page views and visitors
-per day, anonymously (a hash with a random daily key, kept in memory). The scripts are served from the site itself
-(`web/lib/`); only the base map comes from [OpenFreeMap](https://openfreemap.org/). The browser remembers the chosen
-view and whether the welcome was shown, and nothing leaves it.
+The map page sets no cookies and uses no tracking. Its scripts come with it (`web/lib/`); only the base map comes from
+[OpenFreeMap](https://openfreemap.org/). The browser remembers the chosen view and whether the welcome was shown,
+and nothing leaves it.
 
 The published values are averages per street segment and direction, with no ride, time or route in them. The
 *Rides* view shows pieces of the rides without times or ride ids: the first and last 500 m of every ride and every
@@ -168,6 +164,13 @@ other 500 m piece are left out, so no start, end or whole ride shows.
 Wrong values, ideas, questions: GitHub issues, or the map's *Feedback* link.
 
 ## Credits
+
+* The **cyclists who recorded their rides** with the SimRa app and shared them: every measured value comes from their
+  rides.
+* The **[SimRa](https://www.digital-future.berlin/forschung/projekte/simra/) project** at TU Berlin, which collects
+  the rides and publishes them as [open data](https://github.com/simra-project/dataset).
+* The **[OpenStreetMap](https://www.openstreetmap.org/) contributors**, whose mapping gives the street network, the
+  riding directions and the surface and smoothness tags.
 
 Built by [Andreas Gerken](mailto:info@agerken.de) with the support of [Claude Code](https://claude.com/claude-code).
 
