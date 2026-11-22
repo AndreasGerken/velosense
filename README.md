@@ -71,8 +71,9 @@ Two downloads from the live map's *Data* window, described in [docs/data.md](doc
   measured, OSM and combined roughness, their uncertainties and the line (WKT).
 * `tag_roughness.csv`: the roughness per OSM surface and smoothness tag pair, a ready cost table for a router.
 
-A demo: the values may contain errors and biases (see *Known issues*). They come from SimRa rides and OpenStreetMap
-and keep their licences (see *License*).
+The measured values come from the rides of the [SimRa](https://github.com/simra-project/dataset) cyclists, the tags
+from OpenStreetMap. If you use the data, credit both ("SimRa, © OpenStreetMap contributors"); no commercial use (see
+*License*). A demo: the values may contain errors and biases (see *Known issues*).
 
 ## Outlook
 
