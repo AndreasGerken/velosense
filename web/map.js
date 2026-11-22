@@ -13,8 +13,8 @@ const RATIO = "× as rough as good asphalt";
 // the views, in the order the method goes: the raw rides, per street, the tags, both merged, where they disagree
 const MODES = {
   rides: { name: "Rides", hint: "raw recordings", prop: "n", scale: ROUGH, layer: "rides", unit: "× the ride's median",
-           note: "What it starts from: the SimRa rides (zoomed out, a sample), each second's shaking relative to the "
-               + "ride's own median (ends cut off, parts left out)." },
+           note: "What it starts from: the SimRa rides, each second's shaking relative to the ride's own median (ends "
+               + "cut off, parts left out)." },
   est:   { name: "Measured", hint: "from the rides", prop: "est", scale: ROUGH, filter: MEASURED, fade: "se",
            unit: RATIO,
            note: "Per street and riding direction, from all rides that passed; faint where few did." },

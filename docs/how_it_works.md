@@ -50,9 +50,9 @@ The technical side of the Velosense roughness map. Install, run and known issues
    standard errors (z), without the drift (both describe the same years).
    The map fades every view by the uncertainty of the value it shows.
 6. **Tiles** (`tiles.py`): segments and values -> `web/data/roughness.pmtiles`, which `web/map.html` (with `map.js`)
-   shows. The *Rides* view, `web/data/rides.pmtiles`: each second's value minus its ride's median, from zoom 14 on of
-   every ride. Zoomed out, 1,000 rides: half a random sample (busy streets show as busy), half chosen so quiet streets
-   show too (a ride is drawn if at least half of it runs on segments fewer than two drawn rides pass). So that no rider can be traced (SimRa's terms), the first
+   shows. The *Rides* view, `web/data/rides.pmtiles`: every ride, each second's value minus its ride's median; below
+   zoom 14 one line per 10 seconds with their mean. Where a tile can't hold all lines, tippecanoe leaves out lines
+   where they are densest: busy streets thin out, quiet ones keep their rides. So that no rider can be traced (SimRa's terms), the first
    and last 500 m of every ride and every other 500 m piece are left out, and no times or ride ids are kept.
 7. **Downloads** (`export.py`): the measured segments and the roughness per tag pair as CSV, see [data.md](data.md).
 

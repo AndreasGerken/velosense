@@ -17,16 +17,16 @@ way and riding direction on one scale for every street and city, for bike router
 
 **→ See the map at [velosense.org](https://velosense.org)**: a static page, nothing to install.
 
-![Berlin Mitte: a sample of the raw rides, the roughness measured from all rides, and what the OSM tags predict](docs/map.jpg)
+![Berlin Mitte: the raw rides, the roughness measured from all rides, and what the OSM tags predict](docs/map.jpg)
 
-Berlin Mitte: a sample of the raw rides (left), the roughness measured from all rides per street (middle) and what
+Berlin Mitte: the raw rides (left), the roughness measured from all rides per street (middle) and what
 the OSM tags predict (right). Most streets here are tagged good asphalt; the rides show which of them ride rough.
 Each riding direction is drawn on its own side of the street.
 
 Roughness is shown as **"× as rough as good asphalt"**: ×1.5 shakes a bike 1.5 times as much as a street tagged
 `surface=asphalt, smoothness=good` at the same speed. The map's views go the way the method does:
 
-* **Rides**: what it starts from, the recorded rides (zoomed out, a sample), each second's shaking relative to its ride.
+* **Rides**: what it starts from, the recorded rides, each second's shaking relative to its ride.
 * **Measured**: per street and riding direction, from all rides that passed.
 * **OSM tags**: what the street's surface and smoothness tags predict.
 * **Combined**: both merged, each weighted by how sure it is: a value for every street.
@@ -138,7 +138,7 @@ venv/bin/python pipeline/tiles.py       # -> web/data/roughness.pmtiles, rides.p
 venv/bin/python pipeline/export.py      # -> web/data/roughness.csv.gz, tag_roughness.csv (downloads)
 ```
 
-All of Berlin takes about 12 minutes; the map files are about 300 MB. Then serve `web/` and open the map:
+All of Berlin takes about 20 minutes; the map files are about 300 MB. Then serve `web/` and open the map:
 
 ```bash
 cd web && ../venv/bin/python -m RangeHTTPServer 8770 --bind 127.0.0.1   # http://127.0.0.1:8770/map.html

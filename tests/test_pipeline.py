@@ -223,12 +223,14 @@ def test_tag_table_marks_the_surface_fallback():
     assert t.loc[("asphalt", "*"), "measured_from"] == 2 and len(t) == 2
 
 
-def test_drawn_rides_spread_over_the_streets(monkeypatch):
-    for name, value in [("RIDE_RANDOM", 1), ("RIDE_FULL", 2), ("RIDE_NEW_SHARE", 0.5), ("RIDE_SAMPLE", 10)]:
-        monkeypatch.setattr(tiles, name, value)
-    p = pd.DataFrame({"ride_key": list("abcdde"), "link_id": [1, 1, 1, 1, 2, 3], "metres": [100.0] * 6})
-    # a: taken as it comes; b: link 1 not full yet; c: only on the full link 1; d: half on new link 2; e: new
-    assert tiles.spread(p, list("abcde")) == ["a", "b", "d", "e"]
+def test_far_ride_lines_join_seconds_with_their_mean(monkeypatch):
+    monkeypatch.setattr(tiles, "RIDE_CUT_M", 0.0)
+    monkeypatch.setattr(tiles, "RIDE_PIECE_M", 1e9)
+    t = np.r_[0:7, 9:13]                                       # a gap after second 6
+    sec = pd.DataFrame({"ride_key": "a", "t": t, "lat": 52.5 + t * 4e-5, "lon": 13.4, "norm": t / 10})
+    assert len(list(tiles.ride_features(sec))) == 9           # one line per pair of consecutive seconds
+    lines = [(len(f["geometry"]["coordinates"]), f["properties"]["n"]) for f in tiles.ride_features(sec, 3)]
+    assert lines == [(4, 0.2), (4, 0.5), (4, 1.1)]             # 3 pairs each, never across the gap
 
 
 def test_tiles_keep_touching_lines_that_start_at_a_later_zoom(monkeypatch, tmp_path):

@@ -6,11 +6,10 @@ one-way arrows follow it. Links without passes on minor ways (footway, service, 
 MINOR_ZOOM only, which keeps the low zooms light. GeoJSON lines -> tippecanoe, one run per first zoom (tippecanoe's
 per-feature minzoom loses lines that touch other lines) -> tile-join -> one PMTiles file.
 
-The Rides view: what the estimates start from. From zoom RIDE_CLOSE_ZOOM on, every ride; below, RIDE_SAMPLE of them,
-offered in random order: the first RIDE_RANDOM as they come (busy streets show as busy), then a ride only if at least
-RIDE_NEW_SHARE of its matched length is on street segments fewer than RIDE_FULL drawn rides pass (so quiet streets show
-too). One line per pair of consecutive ride seconds with the later second's `norm` (its shaking relative to the ride's
-median). To keep the riders untraceable (SimRa's terms), RIDE_CUT_M are left out at both ends of each ride, and the
+The Rides view: what the estimates start from, every ride. From zoom RIDE_CLOSE_ZOOM on one line per pair of
+consecutive ride seconds with the later second's `norm` (its shaking relative to the ride's median); below, one line per
+RIDE_FAR_S seconds with their mean (finer is not seen there). Where a tile can't hold them all, tippecanoe leaves out
+lines where they are densest, so busy streets thin out and quiet ones keep their rides. To keep the riders untraceable (SimRa's terms), RIDE_CUT_M are left out at both ends of each ride, and the
 rest is cut into pieces of RIDE_PIECE_M of which every other one is left out; no times, no ride ids.
 
     venv/bin/python pipeline/tiles.py
@@ -23,9 +22,9 @@ import subprocess
 import numpy as np
 import pandas as pd
 
-from common import DATA, LINKS, LINKS_EST, PASSES, PMTILES, RIDES, RIDES_PMTILES, SECONDS, Log, xy
-from config import (MAX_ZOOM, MIN_ZOOM, MINOR_ZOOM, RIDE_BATCH, RIDE_CLOSE_ZOOM, RIDE_CUT_M, RIDE_FULL, RIDE_MAX_ZOOM,
-                    RIDE_NEW_SHARE, RIDE_PIECE_M, RIDE_RANDOM, RIDE_SAMPLE, RIDE_SEED)
+from common import DATA, LINKS, LINKS_EST, PMTILES, RIDES, RIDES_PMTILES, SECONDS, Log, xy
+from config import (MAX_ZOOM, MIN_ZOOM, MINOR_ZOOM, RIDE_BATCH, RIDE_CLOSE_ZOOM, RIDE_CUT_M, RIDE_FAR_S, RIDE_MAX_ZOOM,
+                    RIDE_PIECE_M)
 
 MAJOR = {"primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link", "unclassified",
          "residential", "living_street", "cycleway"}
@@ -54,23 +53,29 @@ def shown(t, lat, lon) -> np.ndarray:
     return inner & ((d - RIDE_CUT_M) // RIDE_PIECE_M % 2 == 0)
 
 
-def ride_features(sec: pd.DataFrame):
+def ride_features(sec: pd.DataFrame, step: int = 1):
+    """one line per `step` consecutive drawn ride seconds, with their mean `norm`"""
     for _, g in sec.groupby("ride_key", sort=False, observed=True):
         g = g.sort_values("t")
         t, lat, lon, norm = (g[c].to_numpy() for c in ("t", "lat", "lon", "norm"))
         keep = shown(t, lat, lon)
-        for i in np.flatnonzero(keep[:-1] & keep[1:] & (np.diff(t) == 1)):
-            yield {"type": "Feature", "properties": {"n": round(float(norm[i + 1]), 2)},
-                   "geometry": {"type": "LineString",
-                                "coordinates": [[round(float(lon[i]), 6), round(float(lat[i]), 6)],
-                                                [round(float(lon[i + 1]), 6), round(float(lat[i + 1]), 6)]]}}
+        pairs = np.flatnonzero(keep[:-1] & keep[1:] & (np.diff(t) == 1))    # second i -> i + 1, both drawn
+        if len(pairs) == 0:
+            continue
+        run = np.cumsum(np.r_[True, np.diff(pairs) > 1])                     # unbroken runs of pairs
+        first = pairs[np.searchsorted(run, run)]                             # each run's first pair
+        piece = run * len(t) + (pairs - first) // step
+        for p in np.split(pairs, np.flatnonzero(np.diff(piece)) + 1):
+            i, j = p[0], p[-1] + 1
+            yield {"type": "Feature", "properties": {"n": round(float(norm[i + 1:j + 1].mean()), 2)},
+                   "geometry": {"type": "LineString", "coordinates": np.c_[lon[i:j + 1], lat[i:j + 1]].round(6).tolist()}}
 
 
-def rides_features(keys: list):
+def rides_features(keys: list, step: int = 1):
     """the rides' features, read RIDE_BATCH rides at a time"""
     for i in range(0, len(keys), RIDE_BATCH):
         yield from ride_features(pd.read_parquet(SECONDS, columns=["ride_key", "t", "lat", "lon", "norm"],
-                                                 filters=[("ride_key", "in", keys[i:i + RIDE_BATCH])]))
+                                                 filters=[("ride_key", "in", keys[i:i + RIDE_BATCH])]), step)
 
 
 def tiles(groups: dict, layer: str, out, log):
@@ -96,25 +101,6 @@ def tiles(groups: dict, layer: str, out, log):
     log(f"-> {out} ({out.stat().st_size / 1e6:.0f} MB)")
 
 
-def spread(passes: pd.DataFrame, order: list) -> list:
-    """up to RIDE_SAMPLE rides from `order`: the first RIDE_RANDOM as they come, then those with at least
-    RIDE_NEW_SHARE of their metres on links fewer than RIDE_FULL kept rides pass"""
-    by_ride = {k: (p.link_id.to_numpy(), p.metres.to_numpy()) for k, p in passes.groupby("ride_key")}
-    count, keep = {}, []
-    for key in order:
-        if key not in by_ride:
-            continue
-        link, metres = by_ride[key]
-        new = np.array([count.get(i, 0) < RIDE_FULL for i in link])
-        if len(keep) < RIDE_RANDOM or metres[new].sum() >= RIDE_NEW_SHARE * metres.sum():
-            keep.append(key)
-            for i in set(link):
-                count[i] = count.get(i, 0) + 1
-            if len(keep) == RIDE_SAMPLE:
-                break
-    return keep
-
-
 def main():
     log = Log()
     links = pd.read_parquet(LINKS, columns=["link_id", "way_id", "lat", "lon", "highway", "name", "surface",
@@ -126,11 +112,10 @@ def main():
           log)
 
     rides = pd.read_parquet(RIDES, columns=["ride_key", "status"])
-    order = rides.ride_key[rides.status == "ok"].sample(frac=1, random_state=RIDE_SEED).tolist()
-    keys = spread(pd.read_parquet(PASSES, columns=["ride_key", "link_id", "metres"]), order)
-    log(f"{len(keys):,} rides drawn below zoom {RIDE_CLOSE_ZOOM}, all {len(order):,} from there")
-    tiles({(MIN_ZOOM, RIDE_CLOSE_ZOOM - 1): rides_features(keys), (RIDE_CLOSE_ZOOM, RIDE_MAX_ZOOM): rides_features(order)},
-          "rides", RIDES_PMTILES, log)
+    keys = rides.ride_key[rides.status == "ok"].tolist()
+    log(f"{len(keys):,} rides")
+    tiles({(MIN_ZOOM, RIDE_CLOSE_ZOOM - 1): rides_features(keys, RIDE_FAR_S),
+           (RIDE_CLOSE_ZOOM, RIDE_MAX_ZOOM): rides_features(keys)}, "rides", RIDES_PMTILES, log)
 
 
 if __name__ == "__main__":
