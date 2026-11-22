@@ -1,4 +1,6 @@
 """Small tests of the pipeline's logic on made-up data:  venv/bin/python -m pytest -q tests"""
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -227,3 +229,20 @@ def test_drawn_rides_spread_over_the_streets(monkeypatch):
     p = pd.DataFrame({"ride_key": list("abcdde"), "link_id": [1, 1, 1, 1, 2, 3], "metres": [100.0] * 6})
     # a: taken as it comes; b: link 1 not full yet; c: only on the full link 1; d: half on new link 2; e: new
     assert tiles.spread(p, list("abcde")) == ["a", "b", "d", "e"]
+
+
+def test_tiles_keep_touching_lines_that_start_at_a_later_zoom(monkeypatch, tmp_path):
+    monkeypatch.setattr(tiles, "DATA", tmp_path)
+    line = lambda n, a, b: {"type": "Feature", "properties": {"n": n},
+                            "geometry": {"type": "LineString", "coordinates": [a, b]}}
+    out = tmp_path / "t.pmtiles"
+    tiles.tiles({(10, 15): [line(1, [13.4, 52.52], [13.4001, 52.5201])],
+                 (14, 15): [line(2, [13.4001, 52.5201], [13.4002, 52.5202]),
+                            line(3, [13.4002, 52.5202], [13.4003, 52.5203])]}, "t", out, lambda _: None)
+    decoded = json.loads(subprocess.run(["tippecanoe-decode", str(out)], capture_output=True, text=True,
+                                        check=True).stdout)
+    per_zoom = {}
+    for tile in decoded["features"]:
+        for layer in tile["features"]:
+            per_zoom.setdefault(tile["properties"]["zoom"], set()).update(f["properties"]["n"] for f in layer["features"])
+    assert per_zoom == {z: {1} if z < 14 else {1, 2, 3} for z in range(10, 16)}

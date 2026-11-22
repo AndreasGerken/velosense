@@ -81,15 +81,20 @@ TAU_MIN = 0.10          # the prior's uncertainty never below this: x1.1 (choice
 
 # ---- tiles.py --------------------------------------------------------------------------------------------------------
 MIN_ZOOM, MAX_ZOOM = 10, 15  # tile zooms (the map zooms in further on the zoom 15 tiles)
+RIDE_MAX_ZOOM = 17      # the Rides view's last tile zoom: below it, the tiles of the busiest streets can't hold every
+                        # ride second (tippecanoe would leave some out)
 MINOR_ZOOM = 13         # minor ways without passes show from this zoom on: keeps the low zooms light
-RIDE_SAMPLE = 1000      # rides drawn in the map's Rides view: enough to see what the measurement starts from, few
-                        # enough for light tiles (choice; all ~22,000 would be ~22 million ride seconds)
+RIDE_SAMPLE = 1000      # rides drawn in the map's Rides view below RIDE_CLOSE_ZOOM: enough to see what the measurement
+                        # starts from, few enough for light tiles of whole districts (choice)
 RIDE_SEED = 1           # the order rides are offered in: a fixed seed, so every run draws the same ones (any number)
 RIDE_RANDOM = 500       # the first this many as they come (a random sample: busy streets show as busy), then ...
 RIDE_FULL = 2           # spread over the streets: a street segment counts as full once this many drawn rides pass it ...
 RIDE_NEW_SHARE = 0.5    # ... and a ride is drawn only if at least this share of its matched length is on segments not
                         # yet full (choices: vs. a plain random sample of 1,000, 2.4 x the street segments with few
                         # rides show, and busy segments still carry 8 drawn rides on average instead of 16)
+RIDE_CLOSE_ZOOM = 14    # from this zoom on the Rides view shows every ride (below, RIDE_SAMPLE): zoomed in, the sample
+                        # leaves most streets with one ride or none (choice: zoom 14 tiles cover ~1.5 km, light enough)
+RIDE_BATCH = 2000       # rides read at a time when writing the tiles: bounds the memory (choice)
 RIDE_CUT_M = 500.0      # m: left out at both ends of a drawn ride, so no start or end (home, work) shows (choice)
 RIDE_PIECE_M = 500.0    # m: a drawn ride is cut into pieces this long and every other one is left out, so the
                         # pieces can't be followed into one ride (choice; the SimRa terms forbid tracing riders)
