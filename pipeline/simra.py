@@ -45,12 +45,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from common import DATA, SECONDS, SIMRA_RAW, Log, xy
+from common import RIDES, SECONDS, SIMRA_RAW, Log, xy
 from config import (BBOX, REGION, GRAVITY_S, HALF_S, HANDLED_DEG, HANDLED_PAD_S, IMU_HZ, MAX_FIX_GAP_S, MAX_H_ACC,
                     MAX_SPAN_S, MAX_SPEED, MIN_KEPT, MIN_MOVE_M, MIN_SPEED, SPEED_EXP, SWELL_S, TURN_DEG, WORKERS)
-
-RIDES = DATA / "rides.parquet"
-
 
 SEP = re.compile(r"^=+[ \t\r]*$", re.M)   # the line between incidents and ride data
 COLS = ["lat", "lon", "X", "Y", "Z", "timeStamp", "acc"]

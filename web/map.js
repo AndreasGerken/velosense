@@ -6,19 +6,25 @@ const INFO = { stops: [0.1, 1, 10, 100, 1000], colors: ["#edf8fb", "#b3cde3", "#
 const FADE = { stops: [0.1, 1, 10], opacity: [0.12, 0.5, 1] };            // by information, on a log axis
 const MISSING = "#a8a8a8";
 const MEASURED = [">", ["get", "passes"], 0];
+const RATIO = "× as rough as good asphalt";
+// the views, in the order the method goes: the raw rides, per street, the tags, both merged, where they disagree
 const MODES = {
-  est:   { name: "Estimated", prop: "est", scale: ROUGH, filter: MEASURED, fade: true,
-           note: "Measured roughness, × as rough as good asphalt." },
-  prior: { name: "OSM", prop: "prior", scale: ROUGH, missing: "not predictable",
-           note: "Predicted from the OSM surface and smoothness tags." },
-  comb:  { name: "Combined", prop: "comb", scale: ROUGH,
-           note: "OSM and the measurement merged." },
-  z:     { name: "Difference", prop: "z", filter: MEASURED, fade: true,
+  rides: { name: "Rides", hint: "raw recordings", prop: "n", scale: ROUGH, layer: "rides", unit: "× the ride's median",
+           note: "What it starts from: a sample of SimRa rides, each second's shaking relative to the ride's own "
+               + "median (ends cut off, parts left out)." },
+  est:   { name: "Measured", hint: "from the rides", prop: "est", scale: ROUGH, filter: MEASURED, fade: true, unit: RATIO,
+           note: "Per street and riding direction, from all rides that passed; faint where few did." },
+  prior: { name: "OSM tags", hint: "predicted", prop: "prior", scale: ROUGH, missing: "not predictable", unit: RATIO,
+           note: "What the street's OpenStreetMap surface and smoothness tags predict." },
+  comb:  { name: "Combined", hint: "best guess", prop: "comb", scale: ROUGH, unit: RATIO,
+           note: "Measurement and OSM tags merged, each by how sure it is: a value for every street." },
+  z:     { name: "Rides vs. OSM", hint: "disagreement", prop: "z", filter: MEASURED, fade: true,
            scale: { stops: [-4, -2, 0, 2, 4], colors: ["#2166ac", "#67a9cf", "#d9d9d9", "#ef8a62", "#b2182b"],
-                    label: v => v },
-           note: "Measured vs OSM (z). Blue: smoother than OSM says, red: rougher." },
-  information: { name: "Information", prop: "information", filter: MEASURED, scale: INFO,
-           note: "How much the measurement rests on: passes weighted by age, length and match certainty." },
+                    label: v => v }, unit: "measured minus OSM, in standard errors (z)",
+           note: "Blue: smoother than its tags say, red: rougher. Beyond ±2 they clearly disagree." },
+  information: { name: "Data amount", hint: "how sure", prop: "information", filter: MEASURED, scale: INFO,
+           unit: "information (1 ≈ one recent ride)",
+           note: "How much the measurement rests on: the rides that passed, weighted by age, length and match certainty." },
 };
 
 // MapLibre's CSP build: its worker is a file of this site, not a blob, so the page's Content-Security-Policy can stay strict
@@ -36,9 +42,9 @@ map.addControl(new maplibregl.GeolocateControl());   // "where am I", mostly for
 // a finger is less precise than a mouse: look for a street within a few pixels of the point, then a few more
 const PHONE_PX = 600;      // narrower maps count as phones (as in the CSS): the popup opens below the street
 const PICK_PX = [3, 12];   // search radii in screen pixels: a mouse click lands within ~3, a tap within ~12
-function pick(pt) {
+function pick(pt, layer = "links") {
   for (const r of PICK_PX) {
-    const f = map.queryRenderedFeatures([[pt.x - r, pt.y - r], [pt.x + r, pt.y + r]], { layers: ["links"] });
+    const f = map.queryRenderedFeatures([[pt.x - r, pt.y - r], [pt.x + r, pt.y + r]], { layers: [layer] });
     if (f.length) return f[0];
   }
 }
@@ -52,17 +58,21 @@ function ramp(prop, stops, outputs, log) {
 }
 
 function setMode(key) {
-  const m = MODES[key], s = m.scale;
+  const m = MODES[key], s = m.scale, layer = m.layer || "links";
   const color = ramp(m.prop, s.stops, s.colors, s.log);
-  map.setPaintProperty("links", "line-color", m.missing ? ["case", ["has", m.prop], color, MISSING] : color);
-  const show = ["all", m.missing ? true : ["has", m.prop], m.filter || true];
-  map.setFilter("links", show);
-  map.setFilter("oneway", ["all", ["has", "oneway"], show]);
-  map.setPaintProperty("links", "line-opacity", m.fade ? ramp("information", FADE.stops, FADE.opacity, true) : 1);
+  for (const l of ["links", "oneway", "rides"])
+    map.setLayoutProperty(l, "visibility", (l === "rides") === (layer === "rides") ? "visible" : "none");
+  if (layer === "links") {
+    map.setPaintProperty("links", "line-color", m.missing ? ["case", ["has", m.prop], color, MISSING] : color);
+    const show = ["all", m.missing ? true : ["has", m.prop], m.filter || true];
+    map.setFilter("links", show);
+    map.setFilter("oneway", ["all", ["has", "oneway"], show]);
+    map.setPaintProperty("links", "line-opacity", m.fade ? ramp("information", FADE.stops, FADE.opacity, true) : 1);
+  } else map.setPaintProperty("rides", "line-color", color);
   document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.k === key));
   const bar = (colors, ticks) => `<div class="bar" style="background:linear-gradient(to right,${colors.join(",")})"></div>
      <div class="ticks">${ticks.map(t => `<span>${t}</span>`).join("")}</div>`;
-  document.getElementById("legend").innerHTML = bar(s.colors, s.stops.map(s.label))
+  document.getElementById("legend").innerHTML = `<div class="unit">${m.unit}</div>` + bar(s.colors, s.stops.map(s.label))
     + (m.missing ? `<div class="grey"><span style="display:inline-block;width:18px;height:6px;background:${MISSING};margin-right:4px"></span>${m.missing}</div>` : "")
     + (m.fade ? `<div class="fade">${bar(FADE.opacity.map(o => `rgba(60,60,60,${o})`), FADE.stops)}<div class="grey">opacity: information</div></div>` : "");
   document.getElementById("note").textContent = m.note;
@@ -71,7 +81,7 @@ function setMode(key) {
 
 for (const [k, m] of Object.entries(MODES)) {
   const b = document.createElement("button");
-  b.textContent = m.name; b.dataset.k = k; b.onclick = () => setMode(k);
+  b.innerHTML = `${m.name} <span class="hint">${m.hint}</span>`; b.dataset.k = k; b.onclick = () => setMode(k);
   document.getElementById("modes").appendChild(b);
 }
 // windows: links with data-open open one; its backdrop, a data-close button or Escape closes it
@@ -103,9 +113,10 @@ map.on("load", () => {
   // phones: the credits start folded into their (i) button, as they fold anyway once the map is moved
   if (map.getContainer().clientWidth < PHONE_PX)
     document.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
-  map.addSource("links", { type: "vector", url: "pmtiles://" + new URL("data/roughness.pmtiles", location.href).href,
-    attribution: 'Rides: <a href="https://github.com/simra-project/dataset" target="_blank" rel="noopener">SimRa</a> '
-      + '(<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>)' });
+  const attribution = 'Rides: <a href="https://github.com/simra-project/dataset" target="_blank" rel="noopener">SimRa</a> '
+    + '(<a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener">CC BY-NC 4.0</a>)';
+  const tiles = file => "pmtiles://" + new URL("data/" + file, location.href).href;
+  map.addSource("links", { type: "vector", url: tiles("roughness.pmtiles"), attribution });
   map.addLayer({
     id: "links", type: "line", source: "links", "source-layer": "links",
     layout: { "line-cap": "round" },
@@ -113,6 +124,12 @@ map.on("load", () => {
       "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1, 15, 3.5, 18, 6],
       "line-offset": ["interpolate", ["linear"], ["zoom"], 11, 0.5, 15, 2.5, 18, 5],
     },
+  });
+  // the Rides view: a sample of ride seconds, drawn thin under nothing else
+  map.addSource("rides", { type: "vector", url: tiles("rides.pmtiles"), attribution });
+  map.addLayer({
+    id: "rides", type: "line", source: "rides", "source-layer": "rides", layout: { "line-cap": "round" },
+    paint: { "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.8, 15, 2, 18, 4], "line-opacity": 0.85 },
   });
   // one-way arrows: the features run in the direction of travel; shifted right like the line (line-offset)
   map.addLayer({
@@ -129,9 +146,17 @@ map.on("load", () => {
   try { mode = localStorage.getItem("mode") || mode; } catch (e) {}
   setMode(MODES[mode] ? mode : "est");
 
-  map.on("mouseenter", "links", () => map.getCanvas().style.cursor = "pointer");
-  map.on("mouseleave", "links", () => map.getCanvas().style.cursor = "");
+  for (const l of ["links", "rides"]) {
+    map.on("mouseenter", l, () => map.getCanvas().style.cursor = "pointer");
+    map.on("mouseleave", l, () => map.getCanvas().style.cursor = "");
+  }
   map.on("click", ev => {
+    if (map.getLayoutProperty("rides", "visibility") === "visible") {
+      const r = pick(ev.point, "rides");
+      if (r) new maplibregl.Popup().setLngLat(ev.lngLat).setHTML(`One second of a SimRa ride: <b>×${
+        Math.exp(r.properties.n).toFixed(2)}</b> <span class="grey">the ride's median shaking</span>`).addTo(map);
+      return;
+    }
     const f = pick(ev.point);
     if (!f) return;
     // OSM names and tags are written by anyone: escape them before they go into the popup's HTML
@@ -144,12 +169,12 @@ map.on("load", () => {
     const rows = [
       ["street", (p.name || "") + grey(p.hw)],
       ["direction", p.dir > 0 ? "as drawn" : "against drawn"],
-      ["estimated", rough(p.est, p.se)],
-      ["OSM", p.prior === undefined ? "not predictable" : rough(p.prior, p.tau) + (p.bysurf ? grey(`all ${p.surface}`) : "")],
+      ["measured", rough(p.est, p.se)],
+      ["OSM tags", p.prior === undefined ? "not predictable" : rough(p.prior, p.tau) + (p.bysurf ? grey(`all ${p.surface}`) : "")],
       ["combined", rough(p.comb, p.comb_se)],
-      ["difference", p.z === undefined ? "–" : "z = " + p.z.toFixed(1)],
-      ["passes", p.passes],
-      ["information", p.information === undefined ? 0 : p.information.toFixed(1)],
+      ["rides vs. OSM", p.z === undefined ? "–" : "z = " + p.z.toFixed(1)],
+      ["passes", p.passes + grey("rides on this segment")],
+      ["data amount", (p.information === undefined ? 0 : p.information.toFixed(1)) + grey("information")],
       ["OSM class", `${p.surface || "–"} / ${p.smoothness || "–"}` + grey("surface / smoothness for bikes")],
       ["OSM way", `<a href="https://www.openstreetmap.org/way/${p.way}" target="_blank" rel="noopener">${p.way}</a>`],
     ];

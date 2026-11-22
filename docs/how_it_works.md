@@ -27,11 +27,16 @@ The technical side of the Velosense roughness map. Install, run and known issues
      * it counts half at 3 years old and ×0.1 at 5;
      * it counts a little more the longer it is: `(metres / 20)^0.14`;
      * it counts less when a parallel line was just as close.
-   * **Information** is the sum of the weights.
+   * **Information** is the sum of the weights (the map's *Data amount* view).
 5. **OSM prediction**: the median estimate of the segments with the same tag pair, or of the same surface when the
    pair is rare or has no smoothness tag. There is none without a surface tag. **Combined** weights the
-   prediction and the estimate by their uncertainties. **Difference** is their gap in standard errors.
-6. **Tiles** (`tiles.py`): segments and values -> `web/data/roughness.pmtiles`, which `web/map.html` (with `map.js`) shows.
+   prediction and the estimate by their uncertainties. **Rides vs. OSM** is their gap in standard errors (z).
+6. **Tiles** (`tiles.py`): segments and values -> `web/data/roughness.pmtiles`, which `web/map.html` (with `map.js`)
+   shows. The *Rides* view, `web/data/rides.pmtiles`: 1,000 rides, each second's value minus its ride's median: half
+   a random sample (busy streets show as busy), half chosen so quiet streets show too (a ride is drawn if at least half
+   of it runs on segments fewer than two drawn rides pass). So that no rider can be traced (SimRa's terms), the first
+   and last 500 m of every ride and every other 500 m piece are left out, and no times or ride ids are kept.
+7. **Downloads** (`export.py`): the measured segments and the roughness per tag pair as CSV, see [data.md](data.md).
 
 All values are logs relative to good asphalt. Good asphalt is also the typical street: the median over the measured
 street length is ×1.00.

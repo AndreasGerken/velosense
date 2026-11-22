@@ -1,9 +1,16 @@
-"""links.parquet + links_est.parquet -> web/data/roughness.pmtiles.
+"""links.parquet + links_est.parquet -> web/data/roughness.pmtiles; seconds.parquet -> web/data/rides.pmtiles.
 
 One feature per link and direction a bike may ride; for direction -1 the geometry is reversed, so every feature runs
 in the direction of travel: `line-offset` in web/map.js puts each direction on its own side of the street, and the
 one-way arrows follow it. Links without passes on minor ways (footway, service, track, path, ...) appear from zoom
 MINOR_ZOOM only, which keeps the low zooms light. GeoJSON lines -> tippecanoe -> one PMTiles file.
+
+The Rides view: what the estimates start from, RIDE_SAMPLE rides: offered in random order, the first RIDE_RANDOM as
+they come (busy streets show as busy), then a ride only if at least RIDE_NEW_SHARE of its matched length is on street
+segments fewer than RIDE_FULL drawn rides pass (so quiet streets show too), one line per pair of
+consecutive ride seconds with the later second's `norm` (its shaking relative to the ride's median). To keep the
+riders untraceable (SimRa's terms), RIDE_CUT_M are left out at both ends of each ride, and the rest is cut into
+pieces of RIDE_PIECE_M of which every other one is left out; no times, no ride ids.
 
     venv/bin/python pipeline/tiles.py
 """
@@ -15,10 +22,10 @@ import subprocess
 import numpy as np
 import pandas as pd
 
-from common import DATA, LINKS, LINKS_EST, PMTILES, Log
-from config import MAX_ZOOM, MIN_ZOOM, MINOR_ZOOM
+from common import DATA, LINKS, LINKS_EST, PASSES, PMTILES, RIDES, RIDES_PMTILES, SECONDS, Log, xy
+from config import (MAX_ZOOM, MIN_ZOOM, MINOR_ZOOM, RIDE_CUT_M, RIDE_FULL, RIDE_NEW_SHARE, RIDE_PIECE_M,
+                    RIDE_RANDOM, RIDE_SAMPLE, RIDE_SEED)
 
-GEOJSON = DATA / "links.geojsonl"
 MAJOR = {"primary", "primary_link", "secondary", "secondary_link", "tertiary", "tertiary_link", "unclassified",
          "residential", "living_street", "cycleway"}
 NUM = ["est", "se", "information", "prior", "tau", "comb", "comb_se", "z"]
@@ -42,22 +49,74 @@ def features(links: pd.DataFrame, est: pd.DataFrame):
         yield f
 
 
+def shown(t, lat, lon) -> np.ndarray:
+    """per ride second (sorted by t): drawn? Not within RIDE_CUT_M of either end, and in an even RIDE_PIECE_M piece"""
+    x, y = xy(lat, lon)
+    d = np.r_[0, np.cumsum(np.hypot(np.diff(x), np.diff(y)))]           # metres along the ride
+    inner = (d >= RIDE_CUT_M) & (d <= d[-1] - RIDE_CUT_M)
+    return inner & ((d - RIDE_CUT_M) // RIDE_PIECE_M % 2 == 0)
+
+
+def ride_features(sec: pd.DataFrame):
+    for _, g in sec.groupby("ride_key", sort=False):
+        g = g.sort_values("t")
+        t, lat, lon, norm = (g[c].to_numpy() for c in ("t", "lat", "lon", "norm"))
+        keep = shown(t, lat, lon)
+        for i in np.flatnonzero(keep[:-1] & keep[1:] & (np.diff(t) == 1)):
+            yield {"type": "Feature", "properties": {"n": round(float(norm[i + 1]), 2)},
+                   "geometry": {"type": "LineString",
+                                "coordinates": [[round(float(lon[i]), 6), round(float(lat[i]), 6)],
+                                                [round(float(lon[i + 1]), 6), round(float(lat[i + 1]), 6)]]}}
+
+
+def tiles(feats, layer: str, out, log):
+    """GeoJSON features -> a PMTiles file (via tippecanoe)"""
+    geojson = DATA / f"{layer}.geojsonl"
+    with open(geojson, "w") as fh:
+        n = 0
+        for n, f in enumerate(feats, 1):
+            fh.write(json.dumps(f, ensure_ascii=False, default=int) + "\n")
+    log(f"{n:,} features -> {geojson}")
+    out.parent.mkdir(exist_ok=True)
+    subprocess.run(["tippecanoe", "-o", str(out), "--force", "-l", layer,
+                    "-Z", str(MIN_ZOOM), "-z", str(MAX_ZOOM), "--drop-densest-as-needed",
+                    "--extend-zooms-if-still-dropping", "-P", "--quiet", str(geojson)],
+                   check=True)
+    geojson.unlink()
+    log(f"-> {out} ({out.stat().st_size / 1e6:.0f} MB)")
+
+
+def spread(passes: pd.DataFrame, order: list) -> list:
+    """up to RIDE_SAMPLE rides from `order`: the first RIDE_RANDOM as they come, then those with at least
+    RIDE_NEW_SHARE of their metres on links fewer than RIDE_FULL kept rides pass"""
+    by_ride = {k: (p.link_id.to_numpy(), p.metres.to_numpy()) for k, p in passes.groupby("ride_key")}
+    count, keep = {}, []
+    for key in order:
+        if key not in by_ride:
+            continue
+        link, metres = by_ride[key]
+        new = np.array([count.get(i, 0) < RIDE_FULL for i in link])
+        if len(keep) < RIDE_RANDOM or metres[new].sum() >= RIDE_NEW_SHARE * metres.sum():
+            keep.append(key)
+            for i in set(link):
+                count[i] = count.get(i, 0) + 1
+            if len(keep) == RIDE_SAMPLE:
+                break
+    return keep
+
+
 def main():
     log = Log()
     links = pd.read_parquet(LINKS, columns=["link_id", "way_id", "lat", "lon", "highway", "name", "surface",
                                            "smoothness", "oneway"])
-    est = pd.read_parquet(LINKS_EST)
-    with open(GEOJSON, "w") as fh:
-        for n, f in enumerate(features(links, est)):
-            fh.write(json.dumps(f, ensure_ascii=False, default=int) + "\n")
-    log(f"{n + 1:,} features -> {GEOJSON}")
-    PMTILES.parent.mkdir(exist_ok=True)
-    subprocess.run(["tippecanoe", "-o", str(PMTILES), "--force", "-l", "links",
-                    "-Z", str(MIN_ZOOM), "-z", str(MAX_ZOOM), "--drop-densest-as-needed",
-                    "--extend-zooms-if-still-dropping", "-P", "--quiet", str(GEOJSON)],
-                   check=True)
-    GEOJSON.unlink()
-    log(f"-> {PMTILES} ({PMTILES.stat().st_size / 1e6:.0f} MB)")
+    tiles(features(links, pd.read_parquet(LINKS_EST)), "links", PMTILES, log)
+
+    rides = pd.read_parquet(RIDES, columns=["ride_key", "status"])
+    order = rides.ride_key[rides.status == "ok"].sample(frac=1, random_state=RIDE_SEED).tolist()
+    keys = spread(pd.read_parquet(PASSES, columns=["ride_key", "link_id", "metres"]), order)
+    sec = pd.read_parquet(SECONDS, columns=["ride_key", "t", "lat", "lon", "norm"], filters=[("ride_key", "in", keys)])
+    log(f"{len(keys):,} rides drawn, {len(sec):,} seconds")
+    tiles(ride_features(sec), "rides", RIDES_PMTILES, log)
 
 
 if __name__ == "__main__":

@@ -8,9 +8,11 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
 
 import estimate  # noqa: E402
+import export  # noqa: E402
 import match  # noqa: E402
 import osm  # noqa: E402
 import simra  # noqa: E402
+import tiles  # noqa: E402
 
 
 # --- simra.py
@@ -169,3 +171,38 @@ def test_prior_falls_back_to_the_surface():
     assert np.allclose(p.prior[20:25], 0.1) and np.allclose(p.prior[30:50], 0.1)      # median of all 45 asphalt
     assert p.by_surface[30:50].all()
     assert not p.by_surface[0] and p.by_surface[20] and not p.by_surface[25]
+
+
+# --- tiles.py: the Rides view
+
+def test_drawn_rides_leave_out_the_ends_and_every_other_piece():
+    d = np.arange(0, 3001, 5.0)                                   # a straight 3 km ride, a second every 5 m
+    lat = np.full(len(d), 52.5)
+    lon = 13.4 + d / tiles.xy(52.5, 1.0)[0]                       # metres east -> degrees
+    keep = tiles.shown(np.arange(len(d)), lat, lon)
+    assert not keep[d < tiles.RIDE_CUT_M - 1].any() and not keep[d > d[-1] - tiles.RIDE_CUT_M + 1].any()
+    first = (d > tiles.RIDE_CUT_M + 1) & (d < tiles.RIDE_CUT_M + tiles.RIDE_PIECE_M - 1)
+    second = (d > tiles.RIDE_CUT_M + tiles.RIDE_PIECE_M + 1) & (d < tiles.RIDE_CUT_M + 2 * tiles.RIDE_PIECE_M - 1)
+    assert keep[first].all() and not keep[second].any()
+
+
+# --- export.py
+
+def test_export_line_runs_in_riding_direction():
+    assert export.wkt([52.0, 52.1], [13.0, 13.1], -1) == "LINESTRING (13.100000 52.100000, 13.000000 52.000000)"
+
+
+def test_tag_table_marks_the_surface_fallback():
+    est = pd.DataFrame({"osm_class": ["asphalt/good", "asphalt/-", "-/-"], "by_surface": [False, True, False],
+                        "prior": [0.0, 0.1, np.nan], "tau": [0.2, 0.3, np.nan], "information": [5.0, 5.0, 5.0]})
+    t = export.tag_table(est).set_index(["surface", "smoothness"])
+    assert t.loc[("asphalt", "good"), "osm"] == 1.0 and abs(t.loc[("asphalt", "*"), "osm"] - np.exp(0.1)) < 1e-3
+    assert t.loc[("asphalt", "*"), "measured_from"] == 2 and len(t) == 2
+
+
+def test_drawn_rides_spread_over_the_streets(monkeypatch):
+    for name, value in [("RIDE_RANDOM", 1), ("RIDE_FULL", 2), ("RIDE_NEW_SHARE", 0.5), ("RIDE_SAMPLE", 10)]:
+        monkeypatch.setattr(tiles, name, value)
+    p = pd.DataFrame({"ride_key": list("abcdde"), "link_id": [1, 1, 1, 1, 2, 3], "metres": [100.0] * 6})
+    # a: taken as it comes; b: link 1 not full yet; c: only on the full link 1; d: half on new link 2; e: new
+    assert tiles.spread(p, list("abcde")) == ["a", "b", "d", "e"]

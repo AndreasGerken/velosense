@@ -18,7 +18,10 @@ SECONDS = DATA / "seconds.parquet"
 LINKS = DATA / "links.parquet"
 PASSES = DATA / "passes.parquet"
 LINKS_EST = DATA / "links_est.parquet"
-PMTILES = ROOT / "web/data/roughness.pmtiles"   # next to the map page that shows it
+RIDES = DATA / "rides.parquet"
+WEB_DATA = ROOT / "web/data"                    # next to the map page that shows them: tiles and downloads
+PMTILES = WEB_DATA / "roughness.pmtiles"
+RIDES_PMTILES = WEB_DATA / "rides.pmtiles"
 
 
 M_LAT = 111_195.0                                # metres per degree of latitude (sphere)
