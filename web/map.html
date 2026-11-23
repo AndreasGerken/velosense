@@ -115,12 +115,13 @@
   <p>Every street is shown per riding direction (each on its own side). Roughness is "× as rough as good asphalt":
      ×1.5 shakes a bike 1.5 times as much as a street tagged <i>surface=asphalt, smoothness=good</i> at the same speed.
      A value <span class="grey">± x</span> is its uncertainty (one standard error: the true value lies within it
-     about 2 times in 3). Every view fades where its value is unsure: full up to ±15 %, faint at ±50 %.</p>
+     about 2 times in 3). Every view fades where its value is unsure: full up to ±15 %, faint at ±50 %. Zoomed
+     far out, all views but Rides show main roads and cycle tracks only.</p>
   <h3>Rides</h3>
   <p>What everything starts from: the SimRa rides, each second's vertical shaking relative to the ride's own median
      (that takes out the phone, its mount and the bike). To keep the riders untraceable, the start and end of every
-     ride and every other piece of it are left out. Zoomed out, each line is the mean of 10 seconds, and busy streets
-     show only part of their rides.</p>
+     ride and every other piece of it are left out. Zoomed out, each line is the mean of several seconds (every second
+     only when close), and busy streets show only part of their rides.</p>
   <h3>Measured</h3>
   <p>From all SimRa rides. Each second of a ride gives the vertical shaking, corrected for speed and for the rider's
      phone and bike (the ride's median is taken out), averaged over 60 m of the ride: a short segment shows the

@@ -42,6 +42,7 @@ maplibregl.addProtocol("pmtiles", protocol.tile);
 const map = new maplibregl.Map({
   container: "map", style: "https://tiles.openfreemap.org/styles/positron",
   center: [13.40, 52.51], zoom: 12, hash: true,   // the start view: the middle of the current region (Berlin)
+  minZoom: 9,                                       // the tiles start there (MIN_ZOOM in pipeline/config.py)
   attributionControl: { compact: true,   // the legal pages are the site's own (not in this repository)
     customAttribution: '<a href="impressum.html">Impressum</a> · <a href="privacy.html">Privacy</a>' },
 });
@@ -134,7 +135,7 @@ map.on("load", () => {
       "line-offset": ["interpolate", ["linear"], ["zoom"], 11, 0.5, 15, 2.5, 18, 5],
     },
   });
-  // the Rides view: the rides' seconds (zoomed out, 10 s per line), drawn thin
+  // the Rides view: the rides' seconds (zoomed out, several per line), drawn thin
   map.addSource("rides", { type: "vector", url: tiles("rides.pmtiles"), attribution });
   map.addLayer({
     id: "rides", type: "line", source: "rides", "source-layer": "rides", layout: { "line-cap": "round" },

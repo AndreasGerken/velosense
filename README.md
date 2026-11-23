@@ -137,7 +137,7 @@ venv/bin/python pipeline/tiles.py       # -> web/data/roughness.pmtiles, rides.p
 venv/bin/python pipeline/export.py      # -> web/data/roughness.csv.gz, tag_roughness.csv (downloads)
 ```
 
-All of Berlin takes about 20 minutes; the map files are about 300 MB. Then serve `web/` and open the map:
+All of Berlin takes about 30 minutes, most of it for the map tiles; the map files are about 350 MB. Then serve `web/` and open the map:
 
 ```bash
 cd web && ../venv/bin/python -m RangeHTTPServer 8770 --bind 127.0.0.1   # http://127.0.0.1:8770/map.html

@@ -50,10 +50,13 @@ The technical side of the Velosense roughness map. Install, run and known issues
    standard errors (z), without the drift (both describe the same years).
    The map fades every view by the uncertainty of the value it shows.
 6. **Tiles** (`tiles.py`): segments and values -> `web/data/roughness.pmtiles`, which `web/map.html` (with `map.js`)
-   shows. The *Rides* view, `web/data/rides.pmtiles`: every ride, each second's value minus its ride's median; below
-   zoom 14 one line per 10 seconds with their mean. Where a tile can't hold all lines, tippecanoe leaves out lines
-   where they are densest: busy streets thin out, quiet ones keep their rides. So that no rider can be traced (SimRa's terms), the first
-   and last 500 m of every ride and every other 500 m piece are left out, and no times or ride ids are kept.
+   shows. Zoomed out (below zoom 12) only main roads and cycle tracks, from 12 all measured segments, from 13 all.
+   The *Rides* view, `web/data/rides.pmtiles`: every ride, each second's value minus its ride's median, one line per
+   ~6 screen pixels with the mean of its seconds (100 s per line at zoom 9, every second from zoom 16). Where a tile
+   can't hold all lines, tippecanoe leaves out lines where they are densest: busy streets thin out, quiet ones keep
+   their rides. Each zoom is tiled on its own, so what is left out at one zoom comes back at the closer ones. So that
+   no rider can be traced (SimRa's terms), the first and last 500 m of every ride and every other 500 m piece are
+   left out, and no times or ride ids are kept.
 7. **Downloads** (`export.py`): the measured segments and the roughness per tag pair as CSV, see [data.md](data.md).
 
 All values are logs relative to good asphalt. Good asphalt is also the typical street: the median over the measured
